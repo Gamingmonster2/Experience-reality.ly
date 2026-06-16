@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reality.ly 3D Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: sans-serif;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        .info-overlay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffcc00;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 8px;
+            pointer-events: none;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div class="info-overlay">
+        <h2>Reality.ly 3D Gallery Test</h2>
+        <p>اضغط واسحب بالماوس لتدوير الكاميرا، واستخدم البكرة للتقريب</p>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // 1. إعداد المشهد، الكاميرا، والمحرك
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 10);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        // إضافة التحكم بالكاميرا بالماوس
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // 2. الإضاءة (لإعطاء تأثير واقعي للمجسمات والصور)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // 3. إضافة أرضية (منصة دائرية) تعكس الواقعية
+        const floorGeo = new THREE.CylinderGeometry(6, 6, 0.2, 32);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.2 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.position.y = -1;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // 4. مصفوفة الصور التي ستقوم بتنزيلها في نفس المستودع
+        const imageFiles = ['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg'];
+        const textureLoader = new THREE.TextureLoader();
+        const frames = [];
+
+        // توزيع الصور بشكل دائري في الفضاء ثلاثي الأبعاد
+        imageFiles.forEach((file, index) => {
+            textureLoader.load(file, (texture) => {
+                // إطار اللوحة الخلفي
+                const frameGeo = new THREE.BoxGeometry(2.2, 1.7, 0.1);
+                const frameMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.5 }); // لمسة ذهبية
+                const frame = new THREE.Mesh(frameGeo, frameMat);
+
+                // اللوحة الفنية (الصورة المرفوعة)
+                const imgGeo = new THREE.PlaneGeometry(2, 1.5);
+                const imgMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+                const imgMesh = new THREE.Mesh(imgGeo, imgMat);
+                imgMesh.position.z = 0.06; // دفع الصورة للأمام قليلاً فوق الإطار
+                frame.add(imgMesh);
+
+                // حساب زاوية التوزيع الدائري
+                const angle = (index / imageFiles.length) * Math.PI * 2;
+                frame.position.x = Math.cos(angle) * 4;
+                frame.position.z = Math.sin(angle) * 4;
+                frame.lookAt(0, 0, 0); // جعل اللوحات تتجه للمركز
+
+                scene.add(frame);
+                frames.push(frame);
+            }, undefined, (err) => {
+                console.error('تأكد من تسمية الصورة بشكل صحيح ووجودها بجانب الملف:', file);
+            });
+        });
+
+        // 5. حلقة التحريك وتحديث الشاشة (Animation Loop)
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // تدوير المنصة ببطء لإعطاء حيوية للمشهد
+            scene.rotation.y += 0.003;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // إعادة ضبط الأبعاد عند تغيير حجم نافذة المتصفح
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
