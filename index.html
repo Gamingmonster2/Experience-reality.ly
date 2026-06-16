@@ -1,3 +1,6 @@
+
+
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6,6 +9,8 @@
     <title>تحدي الزمن ثلاثي الأبعاد | 3D Time Trial</title>
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- GLTFLoader CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <!-- Google Fonts for Cairo Arabic Font -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
@@ -118,7 +123,7 @@
             font-size: 14px;
             color: #aaa;
             line-height: 1.6;
-            max-width: 300px;
+            max-width: 320px;
         }
 
         .controls-hint span {
@@ -255,8 +260,9 @@
             <div class="instructions">
                 <h3>طريقة اللعب:</h3>
                 <ul>
-                    <li>• استخدم الأسهم <span style="color:#ffcc00">▲ ▼ ◄ ►</span> أو <span style="color:#ffcc00">WASD</span> للقيادة والتوجيه.</li>
-                    <li>• اضغط على <span style="color:#ffcc00">المسافة (Space)</span> للمكابح القوية.</li>
+                    <li>• حرك <span style="color:#ffcc00">الفأرة (Mouse)</span> يميناً ويساراً لتوجيه السيارة.</li>
+                    <li>• اضغط مع الاستمرار على <span style="color:#ffcc00">الزر الأيسر للفأرة</span> للتسارع.</li>
+                    <li>• اترك زر الفأرة <span style="color:#ffcc00">للكبح التلقائي</span>.</li>
                     <li>• اضغط على <span style="color:#ffcc00">R</span> لإعادة ضبط السيارة إذا علقت.</li>
                     <li>• اعبر جميع بوابات التفتيش الذهبية لإكمال الدورة بنجاح!</li>
                 </ul>
@@ -283,8 +289,8 @@
 
         <div class="hud-bottom">
             <div class="hud-panel controls-hint">
-                التحكم: <span>WASD / الأسهم</span> للتحرك<br>
-                <span>Space</span> للمكابح | <span>R</span> لإعادة التموضع
+                التحكم: حرك <span>الفأرة</span> للتوجيه<br>
+                اضغط <span>الزر الأيسر</span> للتسارع | اترك <span>للكبح</span> | <span>R</span> لإعادة التموضع
             </div>
             <div class="hud-panel" style="display: flex; gap: 20px;">
                 <div class="speedometer" style="border-left: 1px solid #333; padding-left: 20px;">
@@ -318,6 +324,14 @@
         let bestLapTime = Infinity;
         let totalElapsedTime = 0;
 
+        // --- Audio & Voice State Variables ---
+        let audioCtx = null;
+        let engineOsc = null;
+        let engineGain = null;
+        let welcomeSpoken = false;
+        let lastVoiceTime = 0;
+        const voiceCooldown = 15000; // 15 seconds cooldown between co-driver phrases
+
         // Car Physics Variables
         const carPhysics = {
             speed: 0,
@@ -336,6 +350,8 @@
         };
 
         const keys = { w: false, a: false, s: false, d: false, space: false };
+        let mouseX = 0; // Normalized mouse X coordinate (-1 to 1)
+        let isMouseDown = false;
 
         // --- Asset Mapping ---
         const assetPaths = {
@@ -369,6 +385,46 @@
             }
             const texture = new THREE.CanvasTexture(canvas);
             return texture;
+        }
+
+        // --- Browser-Native Audio Engine ---
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Continuous engine rumble oscillator
+                engineOsc = audioCtx.createOscillator();
+                engineOsc.type = 'sawtooth';
+                engineOsc.frequency.value = 50; // Low frequency start
+                
+                // Lowpass filter to make the engine sound realistic and less harsh
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 350;
+
+                engineGain = audioCtx.createGain();
+                engineGain.gain.value = 0.0; // Start silent
+
+                engineOsc.connect(filter);
+                filter.connect(engineGain);
+                engineGain.connect(audioCtx.destination);
+                
+                engineOsc.start(0);
+            } catch (e) {
+                console.warn("Web Audio API is not supported or blocked.", e);
+            }
+        }
+
+        // --- Browser-Native Speech Synthesis ---
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Stop any ongoing speech
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
         }
 
         // --- Init Function ---
@@ -408,7 +464,7 @@
             sunLight.shadow.camera.bottom = -d;
             scene.add(sunLight);
 
-            // Load Textures
+            // Load Textures & 3D Model
             const manager = new THREE.LoadingManager();
             manager.onLoad = () => {
                 document.getElementById('loader').style.display = 'none';
@@ -440,6 +496,26 @@
             window.addEventListener('resize', onWindowResize, false);
             window.addEventListener('keydown', onKeyDown, false);
             window.addEventListener('keyup', onKeyUp, false);
+
+            // Mouse Controls Event Listeners
+            window.addEventListener('mousemove', (e) => {
+                // Calculate normalized mouse X position (-1 to 1)
+                mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            }, false);
+
+            window.addEventListener('mousedown', (e) => {
+                if (gameActive && e.target.tagName !== 'BUTTON') {
+                    isMouseDown = true;
+                    initAudio();
+                    if (audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            }, false);
+
+            window.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            }, false);
         }
 
         // --- Build Game World ---
@@ -513,7 +589,6 @@
             scene.add(road);
 
             // Create Outer and Inner Boundary Walls for Collisions
-            // Since we want a robust collision system, we place physical blockades along the track
             const wallHeight = 5;
             const wallThickness = 2;
             const wallMat = new THREE.MeshStandardMaterial({
@@ -549,7 +624,6 @@
 
                 // Add Obstacles periodically on the road (using img3.jpg)
                 if (i % 15 === 7) {
-                    // Randomly offset obstacle slightly left or right of track center
                     const offsetMult = (Math.random() - 0.5) * (roadWidth * 0.4);
                     const obsPos = p.clone().add(normal.clone().multiplyScalar(offsetMult));
                     createObstacle(obsPos);
@@ -635,14 +709,13 @@
             collidableObjects.push({
                 mesh: mesh,
                 type: 'obstacle',
-                radius: size * 0.7, // Simple radial collision
+                radius: size * 0.7,
                 boundingBox: new THREE.Box3()
             });
         }
 
         // --- Create Checkpoints (Glowing Arches) ---
         function createCheckpoints() {
-            // Define 3 checkpoints along the loop
             const cpPositions = [
                 { pos: new THREE.Vector3(0, 0, 80), rot: 0, label: 'البداية / النهاية' },
                 { pos: new THREE.Vector3(120, 0, -80), rot: Math.PI / 4, label: 'نقطة التفتيش 1' },
@@ -654,7 +727,6 @@
                 group.position.copy(cp.pos);
                 group.rotation.y = cp.rot;
 
-                // Glowing Arch geometry
                 const archMat = new THREE.MeshBasicMaterial({
                     color: 0xffcc00,
                     wireframe: true,
@@ -681,68 +753,59 @@
             });
         }
 
-        // --- Create Player Car ---
+        // --- Create Player Car (Integrating alpha.glb) ---
         function createCar() {
             car = new THREE.Group();
+            car.wheels = []; // Keep wheels array to prevent reference errors
 
-            // Car Chassis (Metallic img3.jpg)
-            const chassisGeo = new THREE.BoxGeometry(carPhysics.width, 0.8, carPhysics.length);
-            const chassisMat = new THREE.MeshStandardMaterial({
-                map: textures.metallic,
-                metalness: 0.9,
-                roughness: 0.2
-            });
-            const chassis = new THREE.Mesh(chassisGeo, chassisMat);
-            chassis.position.y = 0.6;
-            chassis.castShadow = true;
-            chassis.receiveShadow = true;
-            car.add(chassis);
+            // Load Custom 3D Model 'alpha.glb'
+            const gltfLoader = new THREE.GLTFLoader();
+            gltfLoader.load('alpha.glb', (gltf) => {
+                const model = gltf.scene;
+                
+                // Enable shadows and apply metallic texture if desired
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        if (textures.metallic) {
+                            child.material.map = textures.metallic;
+                            child.material.needsUpdate = true;
+                        }
+                    }
+                });
 
-            // Car Cabin
-            const cabinGeo = new THREE.BoxGeometry(carPhysics.width * 0.8, 0.7, carPhysics.length * 0.5);
-            const cabinMat = new THREE.MeshStandardMaterial({
-                color: 0x111111,
-                roughness: 0.1,
-                metalness: 0.9
-            });
-            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-            cabin.position.set(0, 1.2, -0.2);
-            cabin.castShadow = true;
-            car.add(cabin);
+                // Scale and orient model correctly
+                model.scale.set(1.5, 1.5, 1.5);
+                model.rotation.y = Math.PI; // Face forward
+                car.add(model);
+            }, undefined, (error) => {
+                console.warn("Could not load alpha.glb, building high-quality procedural fallback car.", error);
+                
+                // Fallback Car Chassis
+                const chassisGeo = new THREE.BoxGeometry(carPhysics.width, 0.8, carPhysics.length);
+                const chassisMat = new THREE.MeshStandardMaterial({
+                    map: textures.metallic,
+                    metalness: 0.9,
+                    roughness: 0.2
+                });
+                const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+                chassis.position.y = 0.6;
+                chassis.castShadow = true;
+                chassis.receiveShadow = true;
+                car.add(chassis);
 
-            // Spoiler / Wing (Gold Accent)
-            const wingSupportGeo = new THREE.BoxGeometry(0.2, 0.6, 0.2);
-            const wingMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.8, roughness: 0.2 });
-            const leftSupport = new THREE.Mesh(wingSupportGeo, wingMat);
-            leftSupport.position.set(-0.8, 1.1, 1.8);
-            const rightSupport = new THREE.Mesh(wingSupportGeo, wingMat);
-            rightSupport.position.set(0.8, 1.1, 1.8);
-            car.add(leftSupport, rightSupport);
-
-            const wingGeo = new THREE.BoxGeometry(carPhysics.width * 1.1, 0.1, 0.8);
-            const wing = new THREE.Mesh(wingGeo, wingMat);
-            wing.position.set(0, 1.4, 1.8);
-            wing.castShadow = true;
-            car.add(wing);
-
-            // Wheels
-            const wheelGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.6, 16);
-            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-            const wheelsData = [
-                { x: -1.2, z: -1.4 }, // Front Left
-                { x: 1.2, z: -1.4 },  // Front Right
-                { x: -1.2, z: 1.4 },  // Rear Left
-                { x: 1.2, z: 1.4 }    // Rear Right
-            ];
-
-            car.wheels = [];
-            wheelsData.forEach((wd) => {
-                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-                wheel.rotation.z = Math.PI / 2;
-                wheel.position.set(wd.x, 0.5, wd.z);
-                wheel.castShadow = true;
-                car.add(wheel);
-                car.wheels.push(wheel);
+                // Fallback Car Cabin
+                const cabinGeo = new THREE.BoxGeometry(carPhysics.width * 0.8, 0.7, carPhysics.length * 0.5);
+                const cabinMat = new THREE.MeshStandardMaterial({
+                    color: 0x111111,
+                    roughness: 0.1,
+                    metalness: 0.9
+                });
+                const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+                cabin.position.set(0, 1.2, -0.2);
+                cabin.castShadow = true;
+                car.add(cabin);
             });
 
             // Headlights (Illuminating the dark track)
@@ -776,47 +839,24 @@
             scene.add(car);
         }
 
-        // --- Keyboard Controls ---
+        // --- Keyboard Controls (Fallback & Reset) ---
         function onKeyDown(e) {
             if (!gameActive) return;
             switch (e.code) {
-                case 'ArrowUp':
-                case 'KeyW': keys.w = true; break;
-                case 'ArrowDown':
-                case 'KeyS': keys.s = true; break;
-                case 'ArrowLeft':
-                case 'KeyA': keys.a = true; break;
-                case 'ArrowRight':
-                case 'KeyD': keys.d = true; break;
-                case 'Space': keys.space = true; break;
                 case 'KeyR': resetCar(); break;
             }
         }
 
-        function onKeyUp(e) {
-            switch (e.code) {
-                case 'ArrowUp':
-                case 'KeyW': keys.w = false; break;
-                case 'ArrowDown':
-                case 'KeyS': keys.s = false; break;
-                case 'ArrowLeft':
-                case 'KeyA': keys.a = false; break;
-                case 'ArrowRight':
-                case 'KeyD': keys.d = false; break;
-                case 'Space': keys.space = false; break;
-            }
-        }
+        function onKeyUp(e) {}
 
         // --- Reset Car Position ---
         function resetCar() {
-            // Reset to last passed checkpoint
             const lastCP = checkpoints[currentCheckpointIndex === 0 ? checkpoints.length - 1 : currentCheckpointIndex - 1];
             car.position.copy(lastCP.position);
             car.position.y = 0;
             carPhysics.speed = 0;
             carPhysics.steerAngle = 0;
             
-            // Align orientation towards next checkpoint
             const nextCP = checkpoints[currentCheckpointIndex];
             const dir = new THREE.Vector3().subVectors(nextCP.position, lastCP.position).normalize();
             carPhysics.angle = Math.atan2(dir.x, dir.z);
@@ -832,6 +872,18 @@
             clock.getDelta(); // Reset clock
             lapStartTime = clock.getElapsedTime();
             showCenterMessage("انطلق!");
+
+            // Initialize browser-native audio context on first click
+            initAudio();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            // Voice Assistant Welcome Message
+            if (!welcomeSpoken) {
+                speak("Welcome to your game, Saif! Let's hit the track.");
+                welcomeSpoken = true;
+            }
         }
 
         function showCenterMessage(text) {
@@ -847,22 +899,11 @@
         function updatePhysics() {
             if (!gameActive) return;
 
-            // Acceleration & Braking
-            if (keys.w) {
+            // Mouse-based Acceleration & Braking
+            if (isMouseDown) {
                 carPhysics.speed += carPhysics.acceleration;
-            } else if (keys.s) {
-                carPhysics.speed -= carPhysics.acceleration;
             } else {
-                // Apply friction
-                if (carPhysics.speed > 0) {
-                    carPhysics.speed = Math.max(0, carPhysics.speed - carPhysics.friction);
-                } else if (carPhysics.speed < 0) {
-                    carPhysics.speed = Math.min(0, carPhysics.speed + carPhysics.friction);
-                }
-            }
-
-            // Handbrake
-            if (keys.space) {
+                // Release to brake automatically
                 if (carPhysics.speed > 0) {
                     carPhysics.speed = Math.max(0, carPhysics.speed - carPhysics.brakeForce);
                 } else if (carPhysics.speed < 0) {
@@ -873,16 +914,9 @@
             // Clamp Speed
             carPhysics.speed = Math.max(carPhysics.maxReverseSpeed, Math.min(carPhysics.maxSpeed, carPhysics.speed));
 
-            // Steering
-            const currentTurnSpeed = carPhysics.steerSpeed * (Math.abs(carPhysics.speed) + 0.2); // Dynamic steering based on speed
-            if (keys.a) {
-                carPhysics.steerAngle = Math.min(carPhysics.maxSteer, carPhysics.steerAngle + currentTurnSpeed);
-            } else if (keys.d) {
-                carPhysics.steerAngle = Math.max(-carPhysics.maxSteer, carPhysics.steerAngle - currentTurnSpeed);
-            } else {
-                // Return steering to center
-                carPhysics.steerAngle *= 0.8;
-            }
+            // Smooth Mouse-based Steering (X-axis movement)
+            const targetSteer = -mouseX * carPhysics.maxSteer;
+            carPhysics.steerAngle += (targetSteer - carPhysics.steerAngle) * 0.1;
 
             // Update Car Heading Angle
             if (Math.abs(carPhysics.speed) > 0.05) {
@@ -900,13 +934,10 @@
 
             // Collision Detection
             let collided = false;
-            
-            // Temporary update car group position to compute global bounding box
             const oldPos = car.position.clone();
             car.position.copy(nextPos);
             car.rotation.y = carPhysics.angle;
             
-            // Recompute all active bounding boxes
             const carBox = new THREE.Box3().setFromObject(car);
 
             for (let i = 0; i < collidableObjects.length; i++) {
@@ -920,28 +951,36 @@
             }
 
             if (collided) {
-                // Rollback position
                 car.position.copy(oldPos);
-                // Bounce back physics
                 carPhysics.speed = -carPhysics.speed * 0.4;
             } else {
-                // Commit movement
                 car.position.copy(nextPos);
             }
-
-            // Rotate Wheels visually
-            car.wheels.forEach((wheel, index) => {
-                // Rotate wheel forward/backward
-                wheel.rotation.x += carPhysics.speed * 0.5;
-                // Steer front wheels
-                if (index < 2) {
-                    wheel.rotation.y = carPhysics.steerAngle * 4;
-                }
-            });
 
             // Speedometer UI update
             const speedKmh = Math.round(Math.abs(carPhysics.speed) * 100);
             document.getElementById('speed-val').textContent = speedKmh;
+
+            // Synthesized Engine Sound Pitch & Volume Modulation
+            if (engineOsc && engineGain) {
+                const targetGain = isMouseDown ? 0.15 : 0.05;
+                engineGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
+                
+                const speedRatio = Math.abs(carPhysics.speed) / carPhysics.maxSpeed;
+                const targetFreq = 50 + (speedRatio * 180); // Dynamic pitch based on speed
+                engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+            }
+
+            // English Voice Assistant Co-driver Phrases at High Speed
+            if (speedKmh > 120) {
+                const now = Date.now();
+                if (now - lastVoiceTime > voiceCooldown) {
+                    const phrases = ["Speeding up!", "Keep pushing!", "Excellent speed!", "You are flying!"];
+                    const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+                    speak(randomPhrase);
+                    lastVoiceTime = now;
+                }
+            }
         }
 
         // --- Checkpoint & Lap System ---
@@ -953,12 +992,10 @@
 
             if (dist < targetCP.radius) {
                 if (currentCheckpointIndex === 0) {
-                    // Crossed Start/Finish Line
                     const totalTime = clock.getElapsedTime();
                     const lapDuration = totalTime - lapStartTime;
 
                     if (lapStartTime > 0 && currentCheckpointIndex === 0) {
-                        // Complete Lap
                         if (lapDuration < bestLapTime) {
                             bestLapTime = lapDuration;
                             document.getElementById('best-val').textContent = formatTime(bestLapTime);
@@ -976,11 +1013,9 @@
                     }
                     lapStartTime = totalTime;
                 } else {
-                    // Crossed intermediary checkpoint
                     showCenterMessage(`تمت عِبارة ${targetCP.label}`);
                 }
 
-                // Advance to next checkpoint target
                 currentCheckpointIndex = (currentCheckpointIndex + 1) % checkpoints.length;
             }
         }
@@ -1005,13 +1040,16 @@
             carPhysics.speed = 0;
             carPhysics.angle = Math.PI;
             car.rotation.y = carPhysics.angle;
+
+            if (engineGain) {
+                engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            }
         }
 
         // --- Smooth Follow Camera ---
         function updateCamera() {
             if (!car) return;
 
-            // Position behind the car relative to its heading angle
             const backDist = 12;
             const height = 4.5;
 
@@ -1019,12 +1057,10 @@
             const targetCamZ = car.position.z - Math.cos(carPhysics.angle) * backDist;
             const targetCamY = car.position.y + height;
 
-            // Lerp camera position for cinematic smoothness
             camera.position.x += (targetCamX - camera.position.x) * 0.08;
             camera.position.z += (targetCamZ - camera.position.z) * 0.08;
             camera.position.y += (targetCamY - camera.position.y) * 0.08;
 
-            // Look slightly ahead of the car
             const lookTarget = car.position.clone();
             lookTarget.y += 1;
             camera.lookAt(lookTarget);
@@ -1054,7 +1090,6 @@
             checkCheckpoints();
             updateCamera();
 
-            // Update Timer UI
             if (gameActive) {
                 const lapElapsed = clock.getElapsedTime() - lapStartTime;
                 document.getElementById('timer-val').textContent = formatTime(lapElapsed);
