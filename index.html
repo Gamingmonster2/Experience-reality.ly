@@ -1,135 +1,1073 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reality.ly 3D Test</title>
+    <title>تحدي الزمن ثلاثي الأبعاد | 3D Time Trial</title>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts for Cairo Arabic Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body {
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            background-color: #1a1a1a;
-            font-family: sans-serif;
+            user-select: none;
         }
-        #canvas-container {
+
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Cairo', sans-serif;
+            overflow: hidden;
             width: 100vw;
             height: 100vh;
         }
-        .info-overlay {
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
             position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #ffcc00;
-            background: rgba(0,0,0,0.7);
-            padding: 10px 20px;
-            border-radius: 8px;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Dark Matte UI with Gold Accents */
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
             pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .hud-panel {
+            background: rgba(20, 20, 20, 0.85);
+            border: 2px solid #ffcc00;
+            border-radius: 12px;
+            padding: 12px 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            pointer-events: auto;
+        }
+
+        .hud-title {
+            font-size: 14px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .hud-value {
+            font-size: 28px;
+            font-weight: 900;
+            color: #ffcc00;
+            text-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .hud-center-msg {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .hud-center-msg.show {
+            opacity: 1;
+        }
+
+        .msg-box {
+            background: rgba(20, 20, 20, 0.9);
+            border: 2px solid #ffcc00;
+            padding: 15px 40px;
+            border-radius: 30px;
+            color: #ffcc00;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(255, 204, 0, 0.4);
+        }
+
+        .hud-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+        }
+
+        .controls-hint {
+            font-size: 14px;
+            color: #aaa;
+            line-height: 1.6;
+            max-width: 300px;
+        }
+
+        .controls-hint span {
+            color: #ffcc00;
+            font-weight: bold;
+        }
+
+        .speedometer {
+            text-align: center;
+            min-width: 150px;
+        }
+
+        /* Main Menu / Screen Overlays */
+        .screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 15, 0.95);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+        }
+
+        .screen-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .menu-content {
+            background: #1e1e1e;
+            border: 3px solid #ffcc00;
+            border-radius: 20px;
+            padding: 40px 60px;
+            text-align: center;
+            max-width: 500px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        h1 {
+            color: #ffcc00;
+            font-size: 36px;
+            margin-bottom: 10px;
+            font-weight: 900;
+            text-shadow: 0 0 15px rgba(255, 204, 0, 0.2);
+        }
+
+        p.subtitle {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .btn {
+            background: #ffcc00;
+            color: #121212;
+            border: none;
+            padding: 14px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: 'Cairo', sans-serif;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 5px 15px rgba(255, 204, 0, 0.4);
+        }
+
+        .btn:hover {
+            background: #ffe066;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 204, 0, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .instructions {
+            margin-top: 30px;
+            text-align: right;
+            border-top: 1px solid #333;
+            padding-top: 20px;
+        }
+
+        .instructions h3 {
+            color: #ffcc00;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            list-style: none;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .instructions li {
+            margin-bottom: 6px;
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #121212;
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #ffcc00;
+            font-size: 24px;
+            font-weight: bold;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <div class="info-overlay">
-        <h2>Reality.ly 3D Gallery Test</h2>
-        <p>اضغط واسحب بالماوس لتدوير الكاميرا، واستخدم البكرة للتقريب</p>
+    <!-- Loading Screen -->
+    <div id="loader">جاري تحميل اللعبة...</div>
+
+    <!-- Main Menu Overlay -->
+    <div id="menu-screen" class="screen-overlay hidden">
+        <div class="menu-content">
+            <h1>تحدي الزمن المثير</h1>
+            <p class="subtitle">قيادة سريعة، تحكم دقيق، وتحدي للثواني</p>
+            <button class="btn" onclick="startGame()">ابدأ السباق</button>
+            <div class="instructions">
+                <h3>طريقة اللعب:</h3>
+                <ul>
+                    <li>• استخدم الأسهم <span style="color:#ffcc00">▲ ▼ ◄ ►</span> أو <span style="color:#ffcc00">WASD</span> للقيادة والتوجيه.</li>
+                    <li>• اضغط على <span style="color:#ffcc00">المسافة (Space)</span> للمكابح القوية.</li>
+                    <li>• اضغط على <span style="color:#ffcc00">R</span> لإعادة ضبط السيارة إذا علقت.</li>
+                    <li>• اعبر جميع بوابات التفتيش الذهبية لإكمال الدورة بنجاح!</li>
+                </ul>
+            </div>
+        </div>
     </div>
 
+    <!-- Game HUD -->
+    <div class="hud-overlay">
+        <div class="hud-header">
+            <div class="hud-panel">
+                <div class="hud-title">الوقت الحالي</div>
+                <div class="hud-value" id="timer-val">00:00.00</div>
+            </div>
+            <div class="hud-panel" style="text-align: left;">
+                <div class="hud-title">أفضل دورة</div>
+                <div class="hud-value" id="best-val">--:--.--</div>
+            </div>
+        </div>
+
+        <div class="hud-center-msg" id="center-msg">
+            <div class="msg-box" id="msg-text">انطلق!</div>
+        </div>
+
+        <div class="hud-bottom">
+            <div class="hud-panel controls-hint">
+                التحكم: <span>WASD / الأسهم</span> للتحرك<br>
+                <span>Space</span> للمكابح | <span>R</span> لإعادة التموضع
+            </div>
+            <div class="hud-panel" style="display: flex; gap: 20px;">
+                <div class="speedometer" style="border-left: 1px solid #333; padding-left: 20px;">
+                    <div class="hud-title">الدورة</div>
+                    <div class="hud-value" id="lap-val">1 / 3</div>
+                </div>
+                <div class="speedometer">
+                    <div class="hud-title">السرعة</div>
+                    <div class="hud-value"><span id="speed-val">0</span> <span style="font-size: 14px; color: #888;">كم/س</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas Container -->
     <div id="canvas-container"></div>
 
     <script>
-        // 1. إعداد المشهد، الكاميرا، والمحرك
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1a1a1a);
+        // --- Game State Variables ---
+        let scene, camera, renderer;
+        let clock;
+        let car;
+        let textures = {};
+        let collidableObjects = [];
+        let checkpoints = [];
+        let currentCheckpointIndex = 0;
+        let currentLap = 1;
+        const totalLaps = 3;
+        let gameActive = false;
+        let lapStartTime = 0;
+        let bestLapTime = Infinity;
+        let totalElapsedTime = 0;
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 5, 10);
+        // Car Physics Variables
+        const carPhysics = {
+            speed: 0,
+            maxSpeed: 1.6,
+            maxReverseSpeed: -0.5,
+            acceleration: 0.03,
+            deceleration: 0.02,
+            friction: 0.01,
+            brakeForce: 0.06,
+            steerAngle: 0,
+            maxSteer: 0.04,
+            steerSpeed: 0.002,
+            angle: Math.PI, // Start facing forward along negative Z
+            width: 2.2,
+            length: 4.5
+        };
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.shadowMap.enabled = true;
-        container.appendChild(renderer.domElement);
+        const keys = { w: false, a: false, s: false, d: false, space: false };
 
-        // إضافة التحكم بالكاميرا بالماوس
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
+        // --- Asset Mapping ---
+        const assetPaths = {
+            ground: 'img1.jpg',     // Seamless tiled texture for ground
+            scenery: 'img2.jpg',    // Scenery panels / Billboards
+            metallic: 'img3.jpg',   // Car body and metallic obstacles
+            skybox: 'img4.jpg'      // Space/nebula skybox background
+        };
 
-        // 2. الإضاءة (لإعطاء تأثير واقعي للمجسمات والصور)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(5, 10, 7);
-        dirLight.castShadow = true;
-        scene.add(dirLight);
-
-        // 3. إضافة أرضية (منصة دائرية) تعكس الواقعية
-        const floorGeo = new THREE.CylinderGeometry(6, 6, 0.2, 32);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.2 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.position.y = -1;
-        floor.receiveShadow = true;
-        scene.add(floor);
-
-        // 4. مصفوفة الصور التي ستقوم بتنزيلها في نفس المستودع
-        const imageFiles = ['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg'];
-        const textureLoader = new THREE.TextureLoader();
-        const frames = [];
-
-        // توزيع الصور بشكل دائري في الفضاء ثلاثي الأبعاد
-        imageFiles.forEach((file, index) => {
-            textureLoader.load(file, (texture) => {
-                // إطار اللوحة الخلفي
-                const frameGeo = new THREE.BoxGeometry(2.2, 1.7, 0.1);
-                const frameMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.5 }); // لمسة ذهبية
-                const frame = new THREE.Mesh(frameGeo, frameMat);
-
-                // اللوحة الفنية (الصورة المرفوعة)
-                const imgGeo = new THREE.PlaneGeometry(2, 1.5);
-                const imgMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
-                const imgMesh = new THREE.Mesh(imgGeo, imgMat);
-                imgMesh.position.z = 0.06; // دفع الصورة للأمام قليلاً فوق الإطار
-                frame.add(imgMesh);
-
-                // حساب زاوية التوزيع الدائري
-                const angle = (index / imageFiles.length) * Math.PI * 2;
-                frame.position.x = Math.cos(angle) * 4;
-                frame.position.z = Math.sin(angle) * 4;
-                frame.lookAt(0, 0, 0); // جعل اللوحات تتجه للمركز
-
-                scene.add(frame);
-                frames.push(frame);
-            }, undefined, (err) => {
-                console.error('تأكد من تسمية الصورة بشكل صحيح ووجودها بجانب الملف:', file);
-            });
-        });
-
-        // 5. حلقة التحريك وتحديث الشاشة (Animation Loop)
-        function animate() {
-            requestAnimationFrame(animate);
+        // Fallback procedural textures if images fail to load
+        function createFallbackTexture(color, patternType) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 256, 256);
             
-            // تدوير المنصة ببطء لإعطاء حيوية للمشهد
-            scene.rotation.y += 0.003;
-
-            controls.update();
-            renderer.render(scene, camera);
+            if (patternType === 'grid') {
+                ctx.strokeStyle = '#222222';
+                ctx.lineWidth = 4;
+                for (let i = 0; i <= 256; i += 32) {
+                    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+                }
+            } else if (patternType === 'noise') {
+                ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                for (let i = 0; i < 1000; i++) {
+                    ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
+                }
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
         }
-        animate();
 
-        // إعادة ضبط الأبعاد عند تغيير حجم نافذة المتصفح
-        window.addEventListener('resize', () => {
+        // --- Init Function ---
+        function init() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x121212, 0.005);
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            sunLight.position.set(100, 150, 50);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 500;
+            const d = 150;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            // Load Textures
+            const manager = new THREE.LoadingManager();
+            manager.onLoad = () => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('menu-screen').classList.remove('hidden');
+                buildWorld();
+            };
+
+            const loader = new THREE.TextureLoader(manager);
+            
+            // Load actual images or fallback immediately on error
+            const loadWithFallback = (key, path, fallbackColor, pattern) => {
+                loader.load(
+                    path,
+                    (texture) => { textures[key] = texture; },
+                    undefined,
+                    () => { 
+                        console.warn(`Failed to load ${path}, using fallback.`);
+                        textures[key] = createFallbackTexture(fallbackColor, pattern);
+                    }
+                );
+            };
+
+            loadWithFallback('ground', assetPaths.ground, '#1a1a1a', 'grid');
+            loadWithFallback('scenery', assetPaths.scenery, '#2a2a2a', 'noise');
+            loadWithFallback('metallic', assetPaths.metallic, '#ffcc00', 'noise');
+            loadWithFallback('skybox', assetPaths.skybox, '#050508', 'noise');
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('keydown', onKeyDown, false);
+            window.addEventListener('keyup', onKeyUp, false);
+        }
+
+        // --- Build Game World ---
+        function buildWorld() {
+            // Skybox using img4.jpg
+            const skyGeo = new THREE.SphereGeometry(900, 32, 32);
+            textures.skybox.wrapS = THREE.RepeatWrapping;
+            textures.skybox.wrapT = THREE.RepeatWrapping;
+            const skyMat = new THREE.MeshBasicMaterial({
+                map: textures.skybox,
+                side: THREE.BackSide
+            });
+            const sky = new THREE.Mesh(skyGeo, skyMat);
+            scene.add(sky);
+
+            // Ground using img1.jpg (tiled)
+            const groundGeo = new THREE.PlaneGeometry(1000, 1000);
+            textures.ground.wrapS = THREE.RepeatWrapping;
+            textures.ground.wrapT = THREE.RepeatWrapping;
+            textures.ground.repeat.set(100, 100);
+            const groundMat = new THREE.MeshStandardMaterial({
+                map: textures.ground,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Build Track Boundaries & Layout
+            createTrack();
+
+            // Create Player Car
+            createCar();
+
+            // Create Checkpoints
+            createCheckpoints();
+        }
+
+        // --- Create Racetrack ---
+        function createTrack() {
+            // Track layout parameters (Oval/Kidney shape loop)
+            const trackPoints = [
+                new THREE.Vector3(0, 0, 80),
+                new THREE.Vector3(120, 0, 80),
+                new THREE.Vector3(180, 0, 0),
+                new THREE.Vector3(120, 0, -80),
+                new THREE.Vector3(0, 0, -80),
+                new THREE.Vector3(-120, 0, -80),
+                new THREE.Vector3(-180, 0, 0),
+                new THREE.Vector3(-120, 0, 80)
+            ];
+
+            // Create a smooth closed loop curve
+            const curve = new THREE.CatmullRomCurve3(trackPoints, true);
+            const points = curve.getSpacedPoints(100);
+
+            // Draw Road Visuals
+            const roadWidth = 24;
+            const roadGeo = new THREE.TubeGeometry(curve, 100, roadWidth / 2, 8, true);
+            const roadMat = new THREE.MeshStandardMaterial({
+                color: 0x111111,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            const road = new THREE.Mesh(roadGeo, roadMat);
+            road.position.y = -11.5; // Offset to flatten tube on ground
+            road.scale.set(1, 0.05, 1);
+            road.receiveShadow = true;
+            scene.add(road);
+
+            // Create Outer and Inner Boundary Walls for Collisions
+            // Since we want a robust collision system, we place physical blockades along the track
+            const wallHeight = 5;
+            const wallThickness = 2;
+            const wallMat = new THREE.MeshStandardMaterial({
+                color: 0x222222,
+                roughness: 0.5,
+                metalness: 0.8,
+                map: textures.metallic
+            });
+
+            // Generate walls along both sides of the track
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                const nextP = points[(i + 1) % points.length];
+                
+                // Direction vector of segment
+                const dir = new THREE.Vector3().subVectors(nextP, p).normalize();
+                const normal = new THREE.Vector3(-dir.z, 0, dir.x); // Perpendicular vector
+
+                // Outer Wall Position
+                const outerPos = p.clone().add(normal.clone().multiplyScalar(roadWidth * 0.8));
+                createWallSegment(outerPos, nextP.clone().add(normal.clone().multiplyScalar(roadWidth * 0.8)), wallHeight, wallThickness, wallMat);
+
+                // Inner Wall Position
+                const innerPos = p.clone().sub(normal.clone().multiplyScalar(roadWidth * 0.8));
+                createWallSegment(innerPos, nextP.clone().sub(normal.clone().multiplyScalar(roadWidth * 0.8)), wallHeight, wallThickness, wallMat);
+
+                // Add Billboards periodically on outer walls (using img2.jpg)
+                if (i % 12 === 0) {
+                    const billboardPos = outerPos.clone().add(normal.clone().multiplyScalar(4));
+                    billboardPos.y = 6;
+                    createBillboard(billboardPos, dir);
+                }
+
+                // Add Obstacles periodically on the road (using img3.jpg)
+                if (i % 15 === 7) {
+                    // Randomly offset obstacle slightly left or right of track center
+                    const offsetMult = (Math.random() - 0.5) * (roadWidth * 0.4);
+                    const obsPos = p.clone().add(normal.clone().multiplyScalar(offsetMult));
+                    createObstacle(obsPos);
+                }
+            }
+        }
+
+        function createWallSegment(start, end, height, thickness, material) {
+            const distance = start.distanceTo(end);
+            const geo = new THREE.BoxGeometry(thickness, height, distance + 0.5);
+            const mesh = new THREE.Mesh(geo, material);
+
+            // Position at midpoint
+            const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+            mesh.position.copy(mid);
+            mesh.position.y = height / 2;
+
+            // Rotate to align with direction
+            mesh.lookAt(end);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            scene.add(mesh);
+
+            // Add simple bounding box for collision detection
+            mesh.geometry.computeBoundingBox();
+            collidableObjects.push({
+                mesh: mesh,
+                type: 'wall',
+                boundingBox: new THREE.Box3()
+            });
+        }
+
+        // --- Create Billboards (img2.jpg) ---
+        function createBillboard(position, direction) {
+            const group = new THREE.Group();
+            group.position.copy(position);
+
+            // Support Posts
+            const postGeo = new THREE.CylinderGeometry(0.3, 0.3, 12);
+            const postMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
+            const post1 = new THREE.Mesh(postGeo, postMat);
+            post1.position.set(-4, -2, 0);
+            const post2 = new THREE.Mesh(postGeo, postMat);
+            post2.position.set(4, -2, 0);
+            group.add(post1, post2);
+
+            // Board Panel using img2.jpg
+            const boardGeo = new THREE.BoxGeometry(12, 6, 0.4);
+            const boardMat = new THREE.MeshStandardMaterial({
+                map: textures.scenery,
+                roughness: 0.4
+            });
+            const board = new THREE.Mesh(boardGeo, boardMat);
+            board.position.y = 4;
+            board.castShadow = true;
+            group.add(board);
+
+            // Rotate group to face the track
+            group.lookAt(position.clone().add(direction));
+            scene.add(group);
+        }
+
+        // --- Create Obstacles (img3.jpg) ---
+        function createObstacle(position) {
+            const size = 2 + Math.random() * 2;
+            const geo = new THREE.BoxGeometry(size, size, size);
+            
+            // Apply metallic texture (img3.jpg)
+            const mat = new THREE.MeshStandardMaterial({
+                map: textures.metallic,
+                metalness: 0.9,
+                roughness: 0.1
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(position);
+            mesh.position.y = size / 2;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+
+            mesh.geometry.computeBoundingBox();
+            collidableObjects.push({
+                mesh: mesh,
+                type: 'obstacle',
+                radius: size * 0.7, // Simple radial collision
+                boundingBox: new THREE.Box3()
+            });
+        }
+
+        // --- Create Checkpoints (Glowing Arches) ---
+        function createCheckpoints() {
+            // Define 3 checkpoints along the loop
+            const cpPositions = [
+                { pos: new THREE.Vector3(0, 0, 80), rot: 0, label: 'البداية / النهاية' },
+                { pos: new THREE.Vector3(120, 0, -80), rot: Math.PI / 4, label: 'نقطة التفتيش 1' },
+                { pos: new THREE.Vector3(-120, 0, -80), rot: -Math.PI / 4, label: 'نقطة التفتيش 2' }
+            ];
+
+            cpPositions.forEach((cp, index) => {
+                const group = new THREE.Group();
+                group.position.copy(cp.pos);
+                group.rotation.y = cp.rot;
+
+                // Glowing Arch geometry
+                const archMat = new THREE.MeshBasicMaterial({
+                    color: 0xffcc00,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.6
+                });
+
+                const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(1, 12, 1), archMat);
+                leftPillar.position.set(-10, 6, 0);
+                const rightPillar = new THREE.Mesh(new THREE.BoxGeometry(1, 12, 1), archMat);
+                rightPillar.position.set(10, 6, 0);
+                const crossbar = new THREE.Mesh(new THREE.BoxGeometry(21, 1, 1), archMat);
+                crossbar.position.set(0, 12, 0);
+
+                group.add(leftPillar, rightPillar, crossbar);
+                scene.add(group);
+
+                checkpoints.push({
+                    position: cp.pos,
+                    radius: 15,
+                    index: index,
+                    label: cp.label
+                });
+            });
+        }
+
+        // --- Create Player Car ---
+        function createCar() {
+            car = new THREE.Group();
+
+            // Car Chassis (Metallic img3.jpg)
+            const chassisGeo = new THREE.BoxGeometry(carPhysics.width, 0.8, carPhysics.length);
+            const chassisMat = new THREE.MeshStandardMaterial({
+                map: textures.metallic,
+                metalness: 0.9,
+                roughness: 0.2
+            });
+            const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+            chassis.position.y = 0.6;
+            chassis.castShadow = true;
+            chassis.receiveShadow = true;
+            car.add(chassis);
+
+            // Car Cabin
+            const cabinGeo = new THREE.BoxGeometry(carPhysics.width * 0.8, 0.7, carPhysics.length * 0.5);
+            const cabinMat = new THREE.MeshStandardMaterial({
+                color: 0x111111,
+                roughness: 0.1,
+                metalness: 0.9
+            });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(0, 1.2, -0.2);
+            cabin.castShadow = true;
+            car.add(cabin);
+
+            // Spoiler / Wing (Gold Accent)
+            const wingSupportGeo = new THREE.BoxGeometry(0.2, 0.6, 0.2);
+            const wingMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.8, roughness: 0.2 });
+            const leftSupport = new THREE.Mesh(wingSupportGeo, wingMat);
+            leftSupport.position.set(-0.8, 1.1, 1.8);
+            const rightSupport = new THREE.Mesh(wingSupportGeo, wingMat);
+            rightSupport.position.set(0.8, 1.1, 1.8);
+            car.add(leftSupport, rightSupport);
+
+            const wingGeo = new THREE.BoxGeometry(carPhysics.width * 1.1, 0.1, 0.8);
+            const wing = new THREE.Mesh(wingGeo, wingMat);
+            wing.position.set(0, 1.4, 1.8);
+            wing.castShadow = true;
+            car.add(wing);
+
+            // Wheels
+            const wheelGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.6, 16);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+            const wheelsData = [
+                { x: -1.2, z: -1.4 }, // Front Left
+                { x: 1.2, z: -1.4 },  // Front Right
+                { x: -1.2, z: 1.4 },  // Rear Left
+                { x: 1.2, z: 1.4 }    // Rear Right
+            ];
+
+            car.wheels = [];
+            wheelsData.forEach((wd) => {
+                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(wd.x, 0.5, wd.z);
+                wheel.castShadow = true;
+                car.add(wheel);
+                car.wheels.push(wheel);
+            });
+
+            // Headlights (Illuminating the dark track)
+            const headlightGeo = new THREE.SphereGeometry(0.15, 8, 8);
+            const headlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const leftLight = new THREE.Mesh(headlightGeo, headlightMat);
+            leftLight.position.set(-0.8, 0.6, -2.25);
+            const rightLight = new THREE.Mesh(headlightGeo, headlightMat);
+            rightLight.position.set(0.8, 0.6, -2.25);
+            car.add(leftLight, rightLight);
+
+            // Real Spotlights
+            const targetLeft = new THREE.Object3D();
+            targetLeft.position.set(-0.8, 0.6, -10);
+            car.add(targetLeft);
+            const spotLeft = new THREE.SpotLight(0xffffff, 3, 40, Math.PI / 6, 0.5, 1);
+            spotLeft.position.set(-0.8, 0.6, -2.25);
+            spotLeft.target = targetLeft;
+            car.add(spotLeft);
+
+            const targetRight = new THREE.Object3D();
+            targetRight.position.set(0.8, 0.6, -10);
+            car.add(targetRight);
+            const spotRight = new THREE.SpotLight(0xffffff, 3, 40, Math.PI / 6, 0.5, 1);
+            spotRight.position.set(0.8, 0.6, -2.25);
+            spotRight.target = targetRight;
+            car.add(spotRight);
+
+            // Set starting position (Facing forward on the starting grid)
+            car.position.set(0, 0, 80);
+            scene.add(car);
+        }
+
+        // --- Keyboard Controls ---
+        function onKeyDown(e) {
+            if (!gameActive) return;
+            switch (e.code) {
+                case 'ArrowUp':
+                case 'KeyW': keys.w = true; break;
+                case 'ArrowDown':
+                case 'KeyS': keys.s = true; break;
+                case 'ArrowLeft':
+                case 'KeyA': keys.a = true; break;
+                case 'ArrowRight':
+                case 'KeyD': keys.d = true; break;
+                case 'Space': keys.space = true; break;
+                case 'KeyR': resetCar(); break;
+            }
+        }
+
+        function onKeyUp(e) {
+            switch (e.code) {
+                case 'ArrowUp':
+                case 'KeyW': keys.w = false; break;
+                case 'ArrowDown':
+                case 'KeyS': keys.s = false; break;
+                case 'ArrowLeft':
+                case 'KeyA': keys.a = false; break;
+                case 'ArrowRight':
+                case 'KeyD': keys.d = false; break;
+                case 'Space': keys.space = false; break;
+            }
+        }
+
+        // --- Reset Car Position ---
+        function resetCar() {
+            // Reset to last passed checkpoint
+            const lastCP = checkpoints[currentCheckpointIndex === 0 ? checkpoints.length - 1 : currentCheckpointIndex - 1];
+            car.position.copy(lastCP.position);
+            car.position.y = 0;
+            carPhysics.speed = 0;
+            carPhysics.steerAngle = 0;
+            
+            // Align orientation towards next checkpoint
+            const nextCP = checkpoints[currentCheckpointIndex];
+            const dir = new THREE.Vector3().subVectors(nextCP.position, lastCP.position).normalize();
+            carPhysics.angle = Math.atan2(dir.x, dir.z);
+            car.rotation.y = carPhysics.angle;
+
+            showCenterMessage("تم إعادة ضبط السيارة!");
+        }
+
+        // --- Game Loops & Logic ---
+        function startGame() {
+            document.getElementById('menu-screen').classList.add('hidden');
+            gameActive = true;
+            clock.getDelta(); // Reset clock
+            lapStartTime = clock.getElapsedTime();
+            showCenterMessage("انطلق!");
+        }
+
+        function showCenterMessage(text) {
+            const container = document.getElementById('center-msg');
+            const textBox = document.getElementById('msg-text');
+            textBox.textContent = text;
+            container.classList.add('show');
+            setTimeout(() => {
+                container.classList.remove('show');
+            }, 2000);
+        }
+
+        function updatePhysics() {
+            if (!gameActive) return;
+
+            // Acceleration & Braking
+            if (keys.w) {
+                carPhysics.speed += carPhysics.acceleration;
+            } else if (keys.s) {
+                carPhysics.speed -= carPhysics.acceleration;
+            } else {
+                // Apply friction
+                if (carPhysics.speed > 0) {
+                    carPhysics.speed = Math.max(0, carPhysics.speed - carPhysics.friction);
+                } else if (carPhysics.speed < 0) {
+                    carPhysics.speed = Math.min(0, carPhysics.speed + carPhysics.friction);
+                }
+            }
+
+            // Handbrake
+            if (keys.space) {
+                if (carPhysics.speed > 0) {
+                    carPhysics.speed = Math.max(0, carPhysics.speed - carPhysics.brakeForce);
+                } else if (carPhysics.speed < 0) {
+                    carPhysics.speed = Math.min(0, carPhysics.speed + carPhysics.brakeForce);
+                }
+            }
+
+            // Clamp Speed
+            carPhysics.speed = Math.max(carPhysics.maxReverseSpeed, Math.min(carPhysics.maxSpeed, carPhysics.speed));
+
+            // Steering
+            const currentTurnSpeed = carPhysics.steerSpeed * (Math.abs(carPhysics.speed) + 0.2); // Dynamic steering based on speed
+            if (keys.a) {
+                carPhysics.steerAngle = Math.min(carPhysics.maxSteer, carPhysics.steerAngle + currentTurnSpeed);
+            } else if (keys.d) {
+                carPhysics.steerAngle = Math.max(-carPhysics.maxSteer, carPhysics.steerAngle - currentTurnSpeed);
+            } else {
+                // Return steering to center
+                carPhysics.steerAngle *= 0.8;
+            }
+
+            // Update Car Heading Angle
+            if (Math.abs(carPhysics.speed) > 0.05) {
+                const directionFactor = carPhysics.speed > 0 ? 1 : -1;
+                carPhysics.angle += carPhysics.steerAngle * directionFactor;
+            }
+
+            // Calculate Target Position
+            const velocityX = Math.sin(carPhysics.angle) * carPhysics.speed;
+            const velocityZ = Math.cos(carPhysics.angle) * carPhysics.speed;
+
+            const nextPos = car.position.clone();
+            nextPos.x += velocityX;
+            nextPos.z += velocityZ;
+
+            // Collision Detection
+            let collided = false;
+            
+            // Temporary update car group position to compute global bounding box
+            const oldPos = car.position.clone();
+            car.position.copy(nextPos);
+            car.rotation.y = carPhysics.angle;
+            
+            // Recompute all active bounding boxes
+            const carBox = new THREE.Box3().setFromObject(car);
+
+            for (let i = 0; i < collidableObjects.length; i++) {
+                const obj = collidableObjects[i];
+                obj.boundingBox.setFromObject(obj.mesh);
+
+                if (carBox.intersectsBox(obj.boundingBox)) {
+                    collided = true;
+                    break;
+                }
+            }
+
+            if (collided) {
+                // Rollback position
+                car.position.copy(oldPos);
+                // Bounce back physics
+                carPhysics.speed = -carPhysics.speed * 0.4;
+            } else {
+                // Commit movement
+                car.position.copy(nextPos);
+            }
+
+            // Rotate Wheels visually
+            car.wheels.forEach((wheel, index) => {
+                // Rotate wheel forward/backward
+                wheel.rotation.x += carPhysics.speed * 0.5;
+                // Steer front wheels
+                if (index < 2) {
+                    wheel.rotation.y = carPhysics.steerAngle * 4;
+                }
+            });
+
+            // Speedometer UI update
+            const speedKmh = Math.round(Math.abs(carPhysics.speed) * 100);
+            document.getElementById('speed-val').textContent = speedKmh;
+        }
+
+        // --- Checkpoint & Lap System ---
+        function checkCheckpoints() {
+            if (!gameActive) return;
+
+            const targetCP = checkpoints[currentCheckpointIndex];
+            const dist = car.position.distanceTo(targetCP.position);
+
+            if (dist < targetCP.radius) {
+                if (currentCheckpointIndex === 0) {
+                    // Crossed Start/Finish Line
+                    const totalTime = clock.getElapsedTime();
+                    const lapDuration = totalTime - lapStartTime;
+
+                    if (lapStartTime > 0 && currentCheckpointIndex === 0) {
+                        // Complete Lap
+                        if (lapDuration < bestLapTime) {
+                            bestLapTime = lapDuration;
+                            document.getElementById('best-val').textContent = formatTime(bestLapTime);
+                            showCenterMessage("رقم قياسي جديد!");
+                        } else {
+                            showCenterMessage(`اكتملت الدورة ${currentLap}!`);
+                        }
+
+                        currentLap++;
+                        if (currentLap > totalLaps) {
+                            endGame(true);
+                        } else {
+                            document.getElementById('lap-val').textContent = `${currentLap} / ${totalLaps}`;
+                        }
+                    }
+                    lapStartTime = totalTime;
+                } else {
+                    // Crossed intermediary checkpoint
+                    showCenterMessage(`تمت عِبارة ${targetCP.label}`);
+                }
+
+                // Advance to next checkpoint target
+                currentCheckpointIndex = (currentCheckpointIndex + 1) % checkpoints.length;
+            }
+        }
+
+        // --- End Game Screen ---
+        function endGame(completed) {
+            gameActive = false;
+            const totalTimeStr = formatTime(clock.getElapsedTime() - totalElapsedTime);
+            
+            document.getElementById('menu-screen').classList.remove('hidden');
+            document.querySelector('#menu-screen h1').textContent = "تهانينا! أنهيت السباق";
+            document.querySelector('#menu-screen p.subtitle').textContent = `الزمن الإجمالي: ${totalTimeStr} | أفضل دورة: ${formatTime(bestLapTime)}`;
+            document.querySelector('#menu-screen .btn').textContent = "إعادة المحاولة";
+            
+            // Reset game variables
+            currentCheckpointIndex = 0;
+            currentLap = 1;
+            bestLapTime = Infinity;
+            document.getElementById('lap-val').textContent = `1 / ${totalLaps}`;
+            document.getElementById('best-val').textContent = "--:--.--";
+            car.position.set(0, 0, 80);
+            carPhysics.speed = 0;
+            carPhysics.angle = Math.PI;
+            car.rotation.y = carPhysics.angle;
+        }
+
+        // --- Smooth Follow Camera ---
+        function updateCamera() {
+            if (!car) return;
+
+            // Position behind the car relative to its heading angle
+            const backDist = 12;
+            const height = 4.5;
+
+            const targetCamX = car.position.x - Math.sin(carPhysics.angle) * backDist;
+            const targetCamZ = car.position.z - Math.cos(carPhysics.angle) * backDist;
+            const targetCamY = car.position.y + height;
+
+            // Lerp camera position for cinematic smoothness
+            camera.position.x += (targetCamX - camera.position.x) * 0.08;
+            camera.position.z += (targetCamZ - camera.position.z) * 0.08;
+            camera.position.y += (targetCamY - camera.position.y) * 0.08;
+
+            // Look slightly ahead of the car
+            const lookTarget = car.position.clone();
+            lookTarget.y += 1;
+            camera.lookAt(lookTarget);
+        }
+
+        // --- Helper: Format Time ---
+        function formatTime(secs) {
+            if (secs === Infinity || isNaN(secs)) return "--:--.--";
+            const m = Math.floor(secs / 60).toString().padStart(2, '0');
+            const s = Math.floor(secs % 60).toString().padStart(2, '0');
+            const c = Math.floor((secs % 1) * 100).toString().padStart(2, '0');
+            return `${m}:${s}.${c}`;
+        }
+
+        // --- Window Resize ---
+        function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updatePhysics();
+            checkCheckpoints();
+            updateCamera();
+
+            // Update Timer UI
+            if (gameActive) {
+                const lapElapsed = clock.getElapsedTime() - lapStartTime;
+                document.getElementById('timer-val').textContent = formatTime(lapElapsed);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Run Game ---
+        window.onload = () => {
+            init();
+            animate();
+        };
     </script>
 </body>
 </html>
