@@ -89,7 +89,7 @@ Here is the complete, updated raw code:
         }
         /* Mobile Controls Layout */
         #mobile-controls {
-            display: none;
+            display: flex;
             width: 100%;
             justify-content: space-between;
             align-items: flex-end;
@@ -198,9 +198,6 @@ Here is the complete, updated raw code:
         }
         /* Match media for showing mobile layout */
         @media (max-width: 900px) {
-            #mobile-controls {
-                display: flex;
-            }
             .controls-info {
                 display: none;
             }
@@ -730,9 +727,9 @@ Here is the complete, updated raw code:
             if (speed > MAX_SPEED) speed = MAX_SPEED;
             if (speed < -MAX_SPEED * 0.3) speed = -MAX_SPEED * 0.3;
 
-            // Apply translation along facing angle
-            carX += speed * Math.sin(carAngle) * dt;
-            carZ += speed * Math.cos(carAngle) * dt;
+            // Apply translation along facing angle (Inverted to move forward away from camera)
+            carX -= speed * Math.sin(carAngle) * dt;
+            carZ -= speed * Math.cos(carAngle) * dt;
 
             // Constrain car coordinates to road width boundaries
             const maxBound = ROAD_WIDTH / 2 - 1.2;
