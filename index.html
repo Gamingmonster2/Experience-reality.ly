@@ -1,1005 +1,824 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>معرض السيارات الفاخرة ومحاكي القيادة ثلاثي الأبعاد</title>
-    <!-- Tailwind CSS for UI -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts (Tajawal) -->
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Three.js and Plugins -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Experience Reality - High Fidelity Driving Simulation</title>
     <style>
-        body {
-            font-family: 'Tajawal', sans-serif;
+        * {
+            box-sizing: border-box;
             user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
             overflow: hidden;
-            background-color: #050508;
+            background-color: #0a0a1a;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        canvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
-        /* Custom scrollbar for UI panels */
-        ::-webkit-scrollbar {
-            width: 6px;
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
         }
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
+        /* HUD styling */
+        .hud-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+            pointer-events: auto;
         }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
+        .hud-card {
+            background: rgba(10, 10, 30, 0.75);
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            border-radius: 12px;
+            padding: 15px 25px;
+            color: #fff;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(0, 255, 200, 0.1);
         }
-        .glass-panel {
-            background: rgba(10, 10, 18, 0.75);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        .speedometer {
+            text-align: center;
         }
-        .neon-glow {
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        .speed-val {
+            font-size: 3rem;
+            font-weight: 900;
+            color: #00ffc8;
+            font-family: 'Courier New', Courier, monospace;
+            text-shadow: 0 0 10px rgba(0, 255, 200, 0.5);
         }
-        .neon-text {
-            text-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+        .speed-unit {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #8a8ab0;
         }
-        /* Active state for customizer buttons */
-        .color-btn.active {
-            border-color: #ffffff;
-            transform: scale(1.15);
-            box-shadow: 0 0 12px currentColor;
+        .controls-info {
+            font-size: 0.85rem;
+            color: #8a8ab0;
+            line-height: 1.6;
+        }
+        .controls-info strong {
+            color: #00ffc8;
+        }
+        /* Mobile Controls Layout */
+        #mobile-controls {
+            display: none;
+            width: 100%;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: auto;
+            margin-bottom: 10px;
+        }
+        .control-group {
+            display: flex;
+            gap: 15px;
+        }
+        .btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(20, 20, 45, 0.8);
+            border: 2px solid rgba(0, 255, 200, 0.5);
+            border-radius: 50%;
+            color: #00ffc8;
+            font-size: 1.2rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 255, 200, 0.2);
+            touch-action: none;
+            transition: transform 0.1s, background-color 0.1s;
+        }
+        .btn:active {
+            transform: scale(0.9);
+            background: rgba(0, 255, 200, 0.3);
+            color: #fff;
+        }
+        .btn-rect {
+            border-radius: 16px;
+            width: 90px;
+            height: 80px;
+        }
+        /* Splash / Onboarding screen */
+        #splash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #151530 0%, #050510 100%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            text-align: center;
+            padding: 30px;
+            transition: opacity 0.5s ease-out;
+        }
+        #splash h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00ffc8, #00a2ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 30px rgba(0, 255, 200, 0.2);
+        }
+        #splash p {
+            font-size: 1.1rem;
+            color: #8a8ab0;
+            max-width: 500px;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        #start-btn {
+            padding: 18px 45px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #050510;
+            background: #00ffc8;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(0, 255, 200, 0.4);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        #start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(0, 255, 200, 0.6);
+            background: #fff;
+        }
+        #loading-progress {
+            width: 250px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 25px;
+            overflow: hidden;
+            display: none;
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #00ffc8;
+            transition: width 0.1s ease;
+        }
+        /* Match media for showing mobile layout */
+        @media (max-width: 900px) {
+            #mobile-controls {
+                display: flex;
+            }
+            .controls-info {
+                display: none;
+            }
         }
     </style>
+    <!-- Three.js and GLTFLoader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
-<body class="relative text-white">
+<body>
 
-    <!-- Start / Loading Overlay -->
-    <div id="loading-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#07070c] transition-opacity duration-700">
-        <div class="text-center max-w-md px-6">
-            <div class="mb-6 inline-flex p-4 rounded-full bg-blue-600/10 border border-blue-500/30 animate-pulse">
-                <i class="fa-solid fa-car-side text-5xl text-blue-500"></i>
-            </div>
-            <h1 class="text-3xl font-black mb-2 tracking-wide neon-text text-blue-400">محاكي القيادة والمعرض ثلاثي الأبعاد</h1>
-            <p class="text-gray-400 text-sm mb-8 leading-relaxed">استمتع بتخصيص سيارتك الفاخرة في المعرض التفاعلي، ثم انطلق بها على الطريق السريع في تجربة قيادة مثيرة.</p>
-            
-            <!-- Progress Bar -->
-            <div class="w-full bg-gray-800 rounded-full h-2.5 mb-6 overflow-hidden border border-gray-700">
-                <div id="progress-bar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <p id="loading-status" class="text-xs text-gray-500 mb-8">جاري تحميل الموارد ثلاثية الأبعاد...</p>
+    <div id="canvas-container"></div>
 
-            <!-- Start Button (Initially hidden) -->
-            <button id="start-btn" class="hidden w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 px-8 rounded-xl shadow-lg shadow-blue-500/30 transform hover:-translate-y-0.5 transition-all text-lg">
-                ابدأ التجربة الآن
-            </button>
+    <div id="ui-layer">
+        <div class="hud-container">
+            <div class="hud-card speedometer">
+                <div class="speed-val" id="speed-display">0</div>
+                <div class="speed-unit">KM/H</div>
+            </div>
+            <div class="hud-card controls-info">
+                <strong>DRIVE:</strong> W / UP ARROW<br>
+                <strong>BRAKE/REV:</strong> S / DOWN ARROW<br>
+                <strong>STEER:</strong> A, D / LEFT, RIGHT ARROWS
+            </div>
+        </div>
+
+        <div id="mobile-controls">
+            <div class="control-group">
+                <div class="btn" id="btn-left">◀</div>
+                <div class="btn" id="btn-right">▶</div>
+            </div>
+            <div class="control-group">
+                <div class="btn btn-rect" id="btn-brake" style="border-color: #ff3e3e; color: #ff3e3e;">BRAKE</div>
+                <div class="btn btn-rect" id="btn-gas">GAS</div>
+            </div>
         </div>
     </div>
 
-    <!-- Main Game UI -->
-    <div id="game-ui" class="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between p-6">
-        
-        <!-- Header: Mode Title & Info -->
-        <div class="flex justify-between items-start w-full pointer-events-auto">
-            <div class="glass-panel px-5 py-3 rounded-2xl flex items-center gap-4">
-                <div class="p-2.5 bg-blue-600/20 rounded-xl border border-blue-500/30">
-                    <i id="mode-icon" class="fa-solid fa-building-columns text-xl text-blue-400"></i>
-                </div>
-                <div>
-                    <h2 id="mode-title" class="text-lg font-bold">معرض السيارات الفاخرة</h2>
-                    <p id="mode-desc" class="text-xs text-gray-400">استخدم الفأرة لتدوير الكاميرا واستكشاف التفاصيل</p>
-                </div>
-            </div>
-
-            <!-- Top Right Settings -->
-            <div class="flex gap-2">
-                <button id="audio-toggle" class="glass-panel p-3.5 rounded-xl hover:bg-white/10 transition text-gray-300 hover:text-white">
-                    <i class="fa-solid fa-volume-high text-lg"></i>
-                </button>
-                <button id="help-toggle" class="glass-panel p-3.5 rounded-xl hover:bg-white/10 transition text-gray-300 hover:text-white">
-                    <i class="fa-solid fa-circle-info text-lg"></i>
-                </button>
-            </div>
-        </div>
-
-        <!-- Left Sidebar: Showroom Customizer Panel (Only visible in Showroom mode) -->
-        <div id="showroom-panel" class="absolute left-6 top-28 bottom-28 w-80 glass-panel rounded-2xl p-5 flex flex-col justify-between pointer-events-auto transition-all duration-500 transform translate-x-0">
-            <div class="space-y-6 overflow-y-auto pr-1">
-                <div>
-                    <span class="text-xs text-blue-400 font-bold tracking-wider uppercase">التخصيص الفاخر</span>
-                    <h3 class="text-xl font-black mt-1">هيكل السيارة</h3>
-                    <p class="text-xs text-gray-400 mt-1">اختر اللون واللمعان المناسب لسيارتك</p>
-                </div>
-
-                <!-- Color Presets -->
-                <div class="space-y-3">
-                    <label class="text-xs text-gray-400">الألوان المتاحة</label>
-                    <div class="grid grid-cols-5 gap-2">
-                        <button class="color-btn active w-10 h-10 rounded-xl border-2 border-transparent transition" style="background-color: #d11a2a; color: #d11a2a;" data-color="0xd11a2a"></button>
-                        <button class="color-btn w-10 h-10 rounded-xl border-2 border-transparent transition" style="background-color: #0d47a1; color: #0d47a1;" data-color="0x0d47a1"></button>
-                        <button class="color-btn w-10 h-10 rounded-xl border-2 border-transparent transition" style="background-color: #1b5e20; color: #1b5e20;" data-color="0x1b5e20"></button>
-                        <button class="color-btn w-10 h-10 rounded-xl border-2 border-transparent transition" style="background-color: #ffb300; color: #ffb300;" data-color="0xffb300"></button>
-                        <button class="color-btn w-10 h-10 rounded-xl border-2 border-transparent transition" style="background-color: #1a1a1a; color: #1a1a1a;" data-color="0x111111"></button>
-                    </div>
-                </div>
-
-                <!-- Material Properties -->
-                <div class="space-y-4">
-                    <div>
-                        <div class="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>درجة اللمعان (Roughness)</span>
-                            <span id="roughness-val">20%</span>
-                        </div>
-                        <input id="roughness-slider" type="range" min="0" max="1" step="0.05" value="0.2" class="w-full accent-blue-500 bg-gray-800 h-1 rounded-lg appearance-none cursor-pointer">
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>انعكاس المعدن (Metalness)</span>
-                            <span id="metalness-val">90%</span>
-                        </div>
-                        <input id="metalness-slider" type="range" min="0" max="1" step="0.05" value="0.9" class="w-full accent-blue-500 bg-gray-800 h-1 rounded-lg appearance-none cursor-pointer">
-                    </div>
-                </div>
-
-                <!-- Environment / Lighting Toggle -->
-                <div class="space-y-3">
-                    <label class="text-xs text-gray-400">بيئة العرض والاضاءة</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button id="light-studio" class="py-2 px-3 rounded-xl bg-blue-600/20 border border-blue-500/40 text-xs font-bold text-blue-400 hover:bg-blue-600/30 transition">أستوديو مظلم</button>
-                        <button id="light-neon" class="py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-gray-300 hover:bg-white/10 transition">أضواء نيون ملونة</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Launch Driving Mode Button -->
-            <button id="btn-go-driving" class="w-full mt-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-blue-500/20 transform hover:-translate-y-0.5 transition-all text-center flex items-center justify-center gap-2">
-                <span>انطلق لتجربة القيادة</span>
-                <i class="fa-solid fa-gauge-high"></i>
-            </button>
-        </div>
-
-        <!-- Driving Mode HUD (Only visible in Driving mode) -->
-        <div id="driving-hud" class="absolute bottom-6 left-6 right-6 flex flex-col md:flex-row justify-between items-end gap-4 pointer-events-none transition-all duration-500 transform translate-y-32 opacity-0">
-            <!-- Left Side: Speedometer & Controls Info -->
-            <div class="glass-panel p-5 rounded-2xl flex items-center gap-6 pointer-events-auto">
-                <!-- Speed Circle -->
-                <div class="relative w-24 h-24 flex items-center justify-center border-4 border-blue-500/20 rounded-full">
-                    <svg class="absolute inset-0 w-full h-full transform -rotate-90">
-                        <circle cx="48" cy="48" r="44" stroke="currentColor" stroke-width="4" class="text-blue-500" fill="transparent" stroke-dasharray="276" id="speed-indicator-circle" />
-                    </svg>
-                    <div class="text-center">
-                        <span id="hud-speed" class="text-3xl font-black neon-text text-blue-400">0</span>
-                        <span class="block text-[10px] text-gray-400 uppercase font-bold">كم / ساعة</span>
-                    </div>
-                </div>
-                <!-- Gear and Distance -->
-                <div class="space-y-1">
-                    <div class="text-xs text-gray-400">المسافة المقطوعة</div>
-                    <div class="text-xl font-bold"><span id="hud-distance">0</span> م</div>
-                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-xs font-bold">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span>الترس: D</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Center: Instructions & Mobile Controls -->
-            <div class="flex flex-col items-center gap-2 w-full md:w-auto">
-                <!-- Desktop Keys Helper -->
-                <div class="hidden md:flex gap-2 glass-panel px-4 py-2 rounded-xl text-xs text-gray-300">
-                    <span class="flex items-center gap-1"><kbd class="px-1.5 py-0.5 bg-white/10 rounded">W</kbd> تسارع</span>
-                    <span class="text-gray-600">|</span>
-                    <span class="flex items-center gap-1"><kbd class="px-1.5 py-0.5 bg-white/10 rounded">S</kbd> فرامل/رجوع</span>
-                    <span class="text-gray-600">|</span>
-                    <span class="flex items-center gap-1"><kbd class="px-1.5 py-0.5 bg-white/10 rounded">A</kbd> <kbd class="px-1.5 py-0.5 bg-white/10 rounded">D</kbd> توجيه</span>
-                </div>
-
-                <!-- On-Screen Touch Controls (Mobile friendly) -->
-                <div class="flex gap-4 pointer-events-auto md:hidden">
-                    <div class="flex gap-2">
-                        <button id="ctrl-left" class="w-14 h-14 rounded-xl glass-panel flex items-center justify-center active:bg-blue-600/30 text-xl"><i class="fa-solid fa-arrow-left"></i></button>
-                        <button id="ctrl-right" class="w-14 h-14 rounded-xl glass-panel flex items-center justify-center active:bg-blue-600/30 text-xl"><i class="fa-solid fa-arrow-right"></i></button>
-                    </div>
-                    <div class="flex gap-2">
-                        <button id="ctrl-brake" class="w-14 h-14 rounded-xl glass-panel flex items-center justify-center active:bg-red-600/30 text-xl text-red-400"><i class="fa-solid fa-circle-dot"></i></button>
-                        <button id="ctrl-gas" class="w-14 h-14 rounded-xl glass-panel flex items-center justify-center active:bg-emerald-600/30 text-xl text-emerald-400"><i class="fa-solid fa-chevron-up"></i></button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right Side: Return to Showroom Button -->
-            <button id="btn-back-showroom" class="glass-panel hover:bg-white/10 text-white font-bold py-3.5 px-6 rounded-xl transition-all pointer-events-auto flex items-center gap-2 border border-white/10 hover:border-white/20">
-                <i class="fa-solid fa-rotate-left"></i>
-                <span>العودة للمعرض</span>
-            </button>
-        </div>
-
-    </div>
-
-    <!-- Help Popup Modal -->
-    <div id="help-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-        <div class="glass-panel max-w-md w-full rounded-2xl p-6 relative">
-            <button id="help-close" class="absolute top-4 left-4 text-gray-400 hover:text-white transition">
-                <i class="fa-solid fa-xmark text-xl"></i>
-            </button>
-            <h3 class="text-xl font-bold mb-4 flex items-center gap-2 text-blue-400">
-                <i class="fa-solid fa-circle-question"></i>
-                <span>دليل التحكم واللعب</span>
-            </h3>
-            <div class="space-y-4 text-sm text-gray-300 leading-relaxed">
-                <div>
-                    <h4 class="font-bold text-white mb-1"><i class="fa-solid fa-building-columns text-blue-400 mr-1"></i> وضع معرض السيارات</h4>
-                    <p>يمكنك استكشاف هيكل السيارة من كافة الزوايا بالضغط والسحب بالفأرة لتدوير الكاميرا، واستخدام عجلة الفأرة للتكبير والتصغير. استخدم اللوحة الجانبية لتغيير ألوان الطلاء والتحكم في خواص المواد ونوع الإضاءة.</p>
-                </div>
-                <div>
-                    <h4 class="font-bold text-white mb-1"><i class="fa-solid fa-car text-blue-400 mr-1"></i> وضع القيادة التفاعلي</h4>
-                    <p>قد السيارة على الطريق السريع اللانهائي عبر الأزرار أو لوحة المفاتيح:</p>
-                    <ul class="list-disc list-inside mr-4 space-y-1 mt-1 text-gray-400">
-                        <li>تسارع للأمام: <kbd class="px-1 bg-white/10 rounded">W</kbd> أو سهم لأعلى</li>
-                        <li>فرامل ورجوع: <kbd class="px-1 bg-white/10 rounded">S</kbd> أو سهم لأسفل</li>
-                        <li>التوجيه يميناً/يساراً: <kbd class="px-1 bg-white/10 rounded">A</kbd> / <kbd class="px-1 bg-white/10 rounded">D</kbd> أو الأسهم الجانبية</li>
-                    </ul>
-                </div>
-            </div>
-            <button id="help-ok" class="w-full mt-6 bg-blue-600 hover:bg-blue-500 py-2.5 rounded-xl font-bold transition">حسناً، فهمت</button>
+    <div id="splash">
+        <h1>EXPERIENCE REALITY</h1>
+        <p>Step into a high-fidelity endless driving simulation. Experience dynamic throttle acoustics and responsive handling mechanics.</p>
+        <button id="start-btn">ENTER SIMULATION</button>
+        <div id="loading-progress">
+            <div id="progress-bar"></div>
         </div>
     </div>
 
-    <!-- Main Canvas Element -->
-    <canvas id="webgl-canvas"></canvas>
-
-    <!-- Three.js Implementation Logic -->
     <script>
+        // --- CONSTANTS & CONFIG ---
+        const ROAD_LENGTH = 300;
+        const ROAD_WIDTH = 22;
+        const POLE_SPACING = 60;
+        const MAX_SPEED = 75; // units/sec (~140 km/h scale)
+        const ACCELERATION = 28;
+        const DECELERATION = 14;
+        const BRAKE_FORCE = 55;
+        const TURN_SPEED = 1.8;
+        const Y_LOCK_HEIGHT = 0.45; // Hardcoded Y lock height for car position
+
         // --- GAME STATE ---
-        const STATE = {
-            mode: 'showroom', // 'showroom' | 'driving'
-            carColor: 0xd11a2a,
-            roughness: 0.2,
-            metalness: 0.9,
-            audioEnabled: false,
-            audioLoaded: false,
-            speed: 0,
-            distance: 0,
-            maxSpeed: 1.2, // maximum translation step per frame
-            acceleration: 0.015,
-            deceleration: 0.01,
-            friction: 0.004,
-            steerAngle: 0,
-            maxSteer: 0.03,
-            carRotation: Math.PI, // Face the camera initially
-            keys: { w: false, a: false, s: false, d: false }
-        };
+        let scene, camera, renderer, clock;
+        let car, carLoaded = false;
+        let roads = [];
+        let poles = [];
+        let headlightL, headlightR;
+        let speed = 0;
+        let carAngle = 0;
+        let carX = 0;
+        let carZ = 0;
 
-        // --- SCENE SETUP ---
-        const canvas = document.getElementById('webgl-canvas');
-        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
-
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x0a0a12, 0.015);
-
-        // Cameras
-        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 2.5, 7.5);
-
-        // Controls (Showroom mode only)
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.maxPolarAngle = Math.PI / 2 - 0.05; // Don't go below ground
-        controls.minDistance = 3.5;
-        controls.maxDistance = 15;
-
-        // --- ASSET LOADERS & AUDIO SETUP ---
-        const loadingManager = new THREE.LoadingManager();
-        const textureLoader = new THREE.TextureLoader(loadingManager);
-        const gltfLoader = new THREE.GLTFLoader(loadingManager);
-        const audioListener = new THREE.AudioListener();
-        camera.add(audioListener);
-
-        // Audio Objects
-        const soundEngineStart = new THREE.Audio(audioListener);
-        const soundEngineIdle = new THREE.Audio(audioListener);
-        const soundEngineAccel = new THREE.Audio(audioListener);
-        const audioLoader = new THREE.AudioLoader(loadingManager);
-
-        // Load progress handler
-        const progressBar = document.getElementById('progress-bar');
-        const loadingStatus = document.getElementById('loading-status');
-        loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
-            const progress = (itemsLoaded / itemsTotal) * 100;
-            progressBar.style.width = `${progress}%`;
-            loadingStatus.textContent = `جاري تحميل الموارد: ${Math.round(progress)}% (${itemsLoaded}/${itemsTotal})`;
-        };
-
-        loadingManager.onLoad = () => {
-            loadingStatus.textContent = 'تم تحميل كافة الموارد بنجاح!';
-            setTimeout(() => {
-                document.getElementById('start-btn').classList.remove('hidden');
-                progressBar.parentElement.classList.add('hidden');
-                loadingStatus.classList.add('hidden');
-            }, 500);
-        };
-
-        // Load Audio Files (Strictly exact paths)
-        audioLoader.load('./audio/engine_start.mp3', (buffer) => {
-            soundEngineStart.setBuffer(buffer);
-            soundEngineStart.setVolume(0.8);
-        });
-        audioLoader.load('./audio/engine_idle.mp3', (buffer) => {
-            soundEngineIdle.setBuffer(buffer);
-            soundEngineIdle.setLoop(true);
-            soundEngineIdle.setVolume(0.5);
-        });
-        audioLoader.load('./audio/engine_accel.mp3', (buffer) => {
-            soundEngineAccel.setBuffer(buffer);
-            soundEngineAccel.setLoop(true);
-            soundEngineAccel.setVolume(0);
-        });
-
-        // Load Textures (Strictly exact paths)
-        const roadTexture = textureLoader.load('./image_cf6b08.jpg');
-        roadTexture.wrapS = THREE.RepeatWrapping;
-        roadTexture.wrapT = THREE.RepeatWrapping;
-        roadTexture.repeat.set(1, 15);
-
-        const poleTexture = textureLoader.load('./img6.jpg');
-
-        // Load Car Model (Strictly exact path: './beta.glb')
-        let carModel = null;
-        let carPaintMaterials = [];
-
-        gltfLoader.load('./beta.glb', (gltf) => {
-            carModel = gltf.scene;
-            
-            // Traverse model to optimize materials and isolate body paint meshes
-            carModel.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                    
-                    // Identify potential car paint materials (usually shiny, metallic, or named paint/body)
-                    const mat = child.material;
-                    if (mat && (mat.name.toLowerCase().includes('paint') || 
-                                mat.name.toLowerCase().includes('body') || 
-                                mat.name.toLowerCase().includes('car_paint') ||
-                                child.name.toLowerCase().includes('body') ||
-                                child.name.toLowerCase().includes('paint'))) {
-                        
-                        // Keep track of paint materials to dynamically change color/properties
-                        if (!carPaintMaterials.includes(mat)) {
-                            carPaintMaterials.push(mat);
-                        }
-                    }
-                }
-            });
-
-            // Set initial paint material properties
-            updateCarPaint();
-            scene.add(carModel);
-            
-            // Position car at the origin facing the camera
-            carModel.position.set(0, 0, 0);
-            carModel.rotation.y = STATE.carRotation;
-        }, undefined, (error) => {
-            console.error("Error loading car model:", error);
-        });
-
-
-        // --- ENVIRONMENT & LIGHTING SETUP ---
-
-        // Showroom Floor / Stage
-        const stageGroup = new THREE.Group();
-        scene.add(stageGroup);
-
-        const stageGeo = new THREE.CylinderGeometry(5, 5.2, 0.2, 64);
-        const stageMat = new THREE.MeshStandardMaterial({
-            color: 0x111118,
-            roughness: 0.3,
-            metalness: 0.8,
-        });
-        const stage = new THREE.Mesh(stageGeo, stageMat);
-        stage.position.y = -0.1;
-        stage.receiveShadow = true;
-        stageGroup.add(stage);
-
-        // Glowing ring around stage
-        const ringGeo = new THREE.RingGeometry(4.8, 5.0, 64);
-        const ringMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, side: THREE.DoubleSide });
-        const stageRing = new THREE.Mesh(ringGeo, ringMat);
-        stageRing.rotation.x = Math.PI / 2;
-        stageRing.position.y = 0.01;
-        stageGroup.add(stageRing);
-
-        // Lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
-        scene.add(ambientLight);
-
-        // Directional Sun/Studio Key Light
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight.position.set(5, 10, 5);
-        dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.bias = -0.0001;
-        scene.add(dirLight);
-
-        // Colored Spotlights for Showroom Atmosphere
-        const spotLight1 = new THREE.SpotLight(0x3b82f6, 5, 15, Math.PI / 4, 0.5, 1);
-        spotLight1.position.set(-5, 8, -5);
-        spotLight1.castShadow = true;
-        scene.add(spotLight1);
-
-        const spotLight2 = new THREE.SpotLight(0xec4899, 3, 15, Math.PI / 4, 0.5, 1);
-        spotLight2.position.set(5, 8, 5);
-        spotLight2.castShadow = true;
-        scene.add(spotLight2);
-
-
-        // --- ROAD & DRIVING ENVIRONMENT SETUP ---
-        const drivingGroup = new THREE.Group();
-        drivingGroup.visible = false;
-        scene.add(drivingGroup);
-
-        // Endless Road Plane
-        const roadGeo = new THREE.PlaneGeometry(16, 1200);
-        const roadMat = new THREE.MeshStandardMaterial({
-            map: roadTexture,
-            roughness: 0.8,
-            metalness: 0.2
-        });
-        const road = new THREE.Mesh(roadGeo, roadMat);
-        road.rotation.x = -Math.PI / 2;
-        road.position.set(0, 0, -500);
-        road.receiveShadow = true;
-        drivingGroup.add(road);
-
-        // Left and Right Road Barriers (Shoulders)
-        const shoulderGeo = new THREE.PlaneGeometry(4, 1200);
-        const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x15151e, roughness: 0.9 });
-        
-        const leftShoulder = new THREE.Mesh(shoulderGeo, shoulderMat);
-        leftShoulder.rotation.x = -Math.PI / 2;
-        leftShoulder.position.set(-10, -0.01, -500);
-        drivingGroup.add(leftShoulder);
-
-        const rightShoulder = new THREE.Mesh(shoulderGeo, shoulderMat);
-        rightShoulder.rotation.x = -Math.PI / 2;
-        rightShoulder.position.set(10, -0.01, -500);
-        drivingGroup.add(rightShoulder);
-
-        // Street Poles & Lights
-        const polesArray = [];
-        const numPoles = 16;
-        const poleSpacing = 75;
-
-        for (let i = 0; i < numPoles; i++) {
-            const zPos = -i * poleSpacing;
-            
-            // Left Pole
-            createPole(-8.5, zPos, true);
-            // Right Pole
-            createPole(8.5, zPos, false);
-        }
-
-        function createPole(x, z, isLeft) {
-            const poleContainer = new THREE.Group();
-            poleContainer.position.set(x, 0, z);
-
-            // Pole vertical cylinder
-            const verticalGeo = new THREE.CylinderGeometry(0.12, 0.18, 8, 8);
-            const verticalMat = new THREE.MeshStandardMaterial({ map: poleTexture, metalness: 0.6, roughness: 0.4 });
-            const vertical = new THREE.Mesh(verticalGeo, verticalMat);
-            vertical.position.y = 4;
-            vertical.castShadow = true;
-            poleContainer.add(vertical);
-
-            // Arm extension
-            const armGeo = new THREE.CylinderGeometry(0.08, 0.08, 2.5, 8);
-            const arm = new THREE.Mesh(armGeo, verticalMat);
-            arm.rotation.z = Math.PI / 2;
-            arm.position.set(isLeft ? 1.1 : -1.1, 8, 0);
-            poleContainer.add(arm);
-
-            // Light bulb fixture
-            const bulbGeo = new THREE.BoxGeometry(0.5, 0.2, 0.8);
-            const bulbMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-            const bulb = new THREE.Mesh(bulbGeo, bulbMat);
-            bulb.position.set(isLeft ? 2.2 : -2.2, 7.9, 0);
-            poleContainer.add(bulb);
-
-            // Actual Spotlight pointing down
-            const streetSpot = new THREE.SpotLight(0xffdfa9, 4, 25, Math.PI / 3, 0.6, 1.5);
-            streetSpot.position.set(isLeft ? 2.2 : -2.2, 7.8, 0);
-            streetSpot.target.position.set(isLeft ? 2.2 : -2.2, 0, 0);
-            poleContainer.add(streetSpot);
-            poleContainer.add(streetSpot.target);
-
-            // Glowing lens
-            const lensGeo = new THREE.PlaneGeometry(0.4, 0.7);
-            const lensMat = new THREE.MeshBasicMaterial({ color: 0xfff0d0 });
-            const lens = new THREE.Mesh(lensGeo, lensMat);
-            lens.rotation.x = Math.PI / 2;
-            lens.position.set(isLeft ? 2.2 : -2.2, 7.78, 0);
-            poleContainer.add(lens);
-
-            drivingGroup.add(poleContainer);
-            polesArray.push(poleContainer);
-        }
-
-        // Collectible Glowing Energy Rings to make it a game!
-        const ringsArray = [];
-        const ringColorPalette = [0x3b82f6, 0x10b981, 0xec4899];
-        
-        for (let i = 0; i < 5; i++) {
-            spawnCollectibleRing(-150 - (i * 120));
-        }
-
-        function spawnCollectibleRing(zPos) {
-            const rColor = ringColorPalette[Math.floor(Math.random() * ringColorPalette.length)];
-            const collRingGeo = new THREE.TorusGeometry(0.8, 0.12, 8, 24);
-            const collRingMat = new THREE.MeshBasicMaterial({ color: rColor });
-            const collRing = new THREE.Mesh(collRingGeo, collRingMat);
-            
-            // Random lane: Left (-4), Center (0), Right (4)
-            const lanes = [-4, 0, 4];
-            const xPos = lanes[Math.floor(Math.random() * lanes.length)];
-            
-            collRing.position.set(xPos, 1.0, zPos);
-            drivingGroup.add(collRing);
-            ringsArray.push({ mesh: collRing, color: rColor });
-        }
-
-
-        // --- INTERACTIVE FUNCTIONS ---
-
-        // Update Car Paint Color and Material Properties
-        function updateCarPaint() {
-            carPaintMaterials.forEach((mat) => {
-                mat.color.setHex(STATE.carColor);
-                mat.roughness = STATE.roughness;
-                mat.metalness = STATE.metalness;
-                // Trigger update
-                mat.needsUpdate = true;
-            });
-        }
+        // Input state
+        const keys = { gas: false, brake: false, left: false, right: false };
 
         // Audio Management
-        function toggleAudio() {
-            STATE.audioEnabled = !STATE.audioEnabled;
-            const icon = document.querySelector('#audio-toggle i');
-            if (STATE.audioEnabled) {
-                icon.className = 'fa-solid fa-volume-high text-lg text-blue-400';
-                if (STATE.mode === 'driving') {
-                    playEngineSounds();
-                }
-            } else {
-                icon.className = 'fa-solid fa-volume-xmark text-lg text-gray-500';
-                stopEngineSounds();
-            }
-        }
+        let audioCtx, listener;
+        let soundStart, soundIdle, soundAccel;
+        let audioInitialized = false;
+        let startSoundPlayed = false;
 
-        function playEngineSounds() {
-            if (!STATE.audioEnabled) return;
-            try {
-                if (soundEngineIdle.buffer && !soundEngineIdle.isPlaying) soundEngineIdle.play();
-                if (soundEngineAccel.buffer && !soundEngineAccel.isPlaying) soundEngineAccel.play();
-            } catch (e) {
-                console.warn("Audio playback failed", e);
-            }
-        }
+        // --- INITIALIZATION ---
+        const container = document.getElementById('canvas-container');
+        const startBtn = document.getElementById('start-btn');
+        const splash = document.getElementById('splash');
+        const progressBar = document.getElementById('progress-bar');
+        const loadingProgress = document.getElementById('loading-progress');
+        const speedDisplay = document.getElementById('speed-display');
 
-        function stopEngineSounds() {
-            if (soundEngineIdle.isPlaying) soundEngineIdle.stop();
-            if (soundEngineAccel.isPlaying) soundEngineAccel.stop();
-            if (soundEngineStart.isPlaying) soundEngineStart.stop();
-        }
-
-        // Switch Modes
-        function switchMode(newMode) {
-            STATE.mode = newMode;
-            
-            const showroomPanel = document.getElementById('showroom-panel');
-            const drivingHud = document.getElementById('driving-hud');
-            const modeIcon = document.getElementById('mode-icon');
-            const modeTitle = document.getElementById('mode-title');
-            const modeDesc = document.getElementById('mode-desc');
-
-            if (newMode === 'driving') {
-                // UI changes
-                showroomPanel.style.transform = 'translateX(120%)';
-                showroomPanel.style.opacity = '0';
-                setTimeout(() => showroomPanel.classList.add('hidden'), 500);
-
-                drivingHud.classList.remove('hidden');
-                setTimeout(() => {
-                    drivingHud.style.transform = 'translateY(0)';
-                    drivingHud.style.opacity = '1';
-                }, 50);
-
-                modeIcon.className = 'fa-solid fa-gauge-high text-xl text-blue-400';
-                modeTitle.textContent = 'محاكي القيادة النشط';
-                modeDesc.textContent = 'تحكم بالأسهم أو لوحة المفاتيح لخوض تجربة قيادة حية';
-
-                // Scene changes
-                stageGroup.visible = false;
-                drivingGroup.visible = true;
-                controls.enabled = false; // Disable orbit controls in driving
-
-                // Reset car position & orientation for driving
-                if (carModel) {
-                    carModel.position.set(0, 0, 0);
-                    carModel.rotation.set(0, Math.PI, 0); // Face forward along negative Z
-                    STATE.carRotation = Math.PI;
-                }
-                STATE.speed = 0;
-                STATE.distance = 0;
-
-                // Play ignition sound
-                if (STATE.audioEnabled && soundEngineStart.buffer) {
-                    soundEngineStart.play();
-                    setTimeout(() => {
-                        playEngineSounds();
-                    }, 1000);
-                }
-
-            } else {
-                // Return to Showroom
-                drivingHud.style.transform = 'translateY(32px)';
-                drivingHud.style.opacity = '0';
-                setTimeout(() => drivingHud.classList.add('hidden'), 500);
-
-                showroomPanel.classList.remove('hidden');
-                setTimeout(() => {
-                    showroomPanel.style.transform = 'translateX(0)';
-                    showroomPanel.style.opacity = '1';
-                }, 50);
-
-                modeIcon.className = 'fa-solid fa-building-columns text-xl text-blue-400';
-                modeTitle.textContent = 'معرض السيارات الفاخرة';
-                modeDesc.textContent = 'استخدم الفأرة لتدوير الكاميرا واستكشاف التفاصيل';
-
-                // Scene changes
-                stageGroup.visible = true;
-                drivingGroup.visible = false;
-                controls.enabled = true;
-
-                // Reset camera & car position
-                camera.position.set(0, 2.5, 7.5);
-                controls.target.set(0, 0.5, 0);
-                if (carModel) {
-                    carModel.position.set(0, 0, 0);
-                    carModel.rotation.set(0, Math.PI, 0);
-                }
-
-                stopEngineSounds();
-            }
-        }
-
-
-        // --- EVENT LISTENERS ---
-
-        // Start button clicked
-        document.getElementById('start-btn').addEventListener('click', () => {
-            document.getElementById('loading-overlay').classList.add('opacity-0');
-            setTimeout(() => {
-                document.getElementById('loading-overlay').classList.add('hidden');
-            }, 700);
-            
-            // Enable Web Audio context on user gesture
-            if (THREE.AudioContext.getContext().state === 'suspended') {
-                THREE.AudioContext.getContext().resume();
-            }
-            toggleAudio(); // Start with audio enabled by default
+        startBtn.addEventListener('click', () => {
+            startBtn.style.display = 'none';
+            loadingProgress.style.display = 'block';
+            initAudio();
+            initEngine();
         });
 
-        // Color Presets
-        document.querySelectorAll('.color-btn').forEach((btn) => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                STATE.carColor = parseInt(e.target.getAttribute('data-color'));
-                updateCarPaint();
+        function initAudio() {
+            if (audioInitialized) return;
+            // Web Audio API context setup
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            listener = new THREE.AudioListener();
+            
+            soundStart = new THREE.Audio(listener);
+            soundIdle = new THREE.Audio(listener);
+            soundAccel = new THREE.Audio(listener);
+
+            const audioLoader = new THREE.AudioLoader();
+
+            // Load all audio resources
+            audioLoader.load('./engine_start.mp3', (buffer) => {
+                soundStart.setBuffer(buffer);
+                soundStart.setVolume(1.0);
             });
-        });
 
-        // Sliders
-        const roughnessSlider = document.getElementById('roughness-slider');
-        const roughnessVal = document.getElementById('roughness-val');
-        roughnessSlider.addEventListener('input', (e) => {
-            STATE.roughness = parseFloat(e.target.value);
-            roughnessVal.textContent = `${Math.round(STATE.roughness * 100)}%`;
-            updateCarPaint();
-        });
+            audioLoader.load('./engine_idle.mp3', (buffer) => {
+                soundIdle.setBuffer(buffer);
+                soundIdle.setLoop(true);
+                soundIdle.setVolume(0.0);
+            });
 
-        const metalnessSlider = document.getElementById('metalness-slider');
-        const metalnessVal = document.getElementById('metalness-val');
-        metalnessSlider.addEventListener('input', (e) => {
-            STATE.metalness = parseFloat(e.target.value);
-            metalnessVal.textContent = `${Math.round(STATE.metalness * 100)}%`;
-            updateCarPaint();
-        });
+            audioLoader.load('./engine_accel.mp3', (buffer) => {
+                soundAccel.setBuffer(buffer);
+                soundAccel.setLoop(true);
+                soundAccel.setVolume(0.0);
+            });
 
-        // Studio lighting toggles
-        document.getElementById('light-studio').addEventListener('click', (e) => {
-            spotLight1.color.setHex(0xffffff);
-            spotLight2.color.setHex(0xffffff);
-            spotLight1.intensity = 4;
-            spotLight2.intensity = 4;
-            e.target.className = "py-2 px-3 rounded-xl bg-blue-600/20 border border-blue-500/40 text-xs font-bold text-blue-400 hover:bg-blue-600/30 transition";
-            document.getElementById('light-neon').className = "py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-gray-300 hover:bg-white/10 transition";
-        });
+            audioInitialized = true;
+        }
 
-        document.getElementById('light-neon').addEventListener('click', (e) => {
-            spotLight1.color.setHex(0x3b82f6); // neon blue
-            spotLight2.color.setHex(0xec4899); // neon pink
-            spotLight1.intensity = 6;
-            spotLight2.intensity = 5;
-            e.target.className = "py-2 px-3 rounded-xl bg-blue-600/20 border border-blue-500/40 text-xs font-bold text-blue-400 hover:bg-blue-600/30 transition";
-            document.getElementById('light-studio').className = "py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-gray-300 hover:bg-white/10 transition";
-        });
+        function triggerEngineStart() {
+            if (!audioInitialized || startSoundPlayed) return;
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            if (soundStart.buffer) {
+                soundStart.play();
+                startSoundPlayed = true;
+                // Fade in engine idle sound after ignition finishes or overlaps
+                setTimeout(() => {
+                    if (soundIdle.buffer) {
+                        soundIdle.play();
+                        soundIdle.gain.gain.linearRampToValueAtTime(0.7, audioCtx.currentTime + 1.5);
+                    }
+                    if (soundAccel.buffer) {
+                        soundAccel.play();
+                        soundAccel.setVolume(0.0);
+                    }
+                }, 1000);
+            }
+        }
 
-        // Mode Switchers
-        document.getElementById('btn-go-driving').addEventListener('click', () => switchMode('driving'));
-        document.getElementById('btn-back-showroom').addEventListener('click', () => switchMode('showroom'));
+        function initEngine() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x060613);
+            scene.fog = new THREE.FogExp2(0x060613, 0.008);
 
-        // Settings Toggles
-        document.getElementById('audio-toggle').addEventListener('click', toggleAudio);
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.add(listener);
 
-        const helpModal = document.getElementById('help-modal');
-        document.getElementById('help-toggle').addEventListener('click', () => helpModal.classList.remove('hidden'));
-        document.getElementById('help-close').addEventListener('click', () => helpModal.classList.add('hidden'));
-        document.getElementById('help-ok').addEventListener('click', () => helpModal.classList.add('hidden'));
-
-        // Window Resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            container.appendChild(renderer.domElement);
 
-        // --- KEYBOARD CONTROLS HANDLERS ---
-        const keyMap = {
-            'ArrowUp': 'w', 'w': 'w', 'W': 'w',
-            'ArrowDown': 's', 's': 's', 'S': 's',
-            'ArrowLeft': 'a', 'a': 'a', 'A': 'a',
-            'ArrowRight': 'd', 'd': 'd', 'D': 'd'
-        };
+            clock = new THREE.Clock();
 
-        window.addEventListener('keydown', (e) => {
-            if (keyMap[e.key]) {
-                STATE.keys[keyMap[e.key]] = true;
+            // Lighting Setup
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
+            scene.add(ambientLight);
+
+            const hemiLight = new THREE.HemisphereLight(0x7d8fa9, 0x0b0b1a, 0.6);
+            scene.add(hemiLight);
+
+            const sunLight = new THREE.DirectionalLight(0x00ffc8, 0.4);
+            sunLight.position.set(100, 150, -100);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 500;
+            const d = 100;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            // Load Textures
+            const textureLoader = new THREE.TextureLoader();
+            
+            const roadTexture = textureLoader.load('./img1.jpg');
+            roadTexture.wrapS = THREE.RepeatWrapping;
+            roadTexture.wrapT = THREE.RepeatWrapping;
+            roadTexture.repeat.set(1, 15);
+            roadTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            const poleTexture = textureLoader.load('./img6.jpg');
+            poleTexture.wrapS = THREE.RepeatWrapping;
+            poleTexture.wrapT = THREE.RepeatWrapping;
+            poleTexture.repeat.set(1, 4);
+
+            // Build Endless Road Segments
+            const roadGeo = new THREE.PlaneGeometry(ROAD_WIDTH, ROAD_LENGTH);
+            const roadMat = new THREE.MeshStandardMaterial({ 
+                map: roadTexture, 
+                roughness: 0.6, 
+                metalness: 0.1 
+            });
+
+            for (let i = 0; i < 3; i++) {
+                const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+                roadMesh.rotation.x = -Math.PI / 2;
+                roadMesh.position.set(0, 0, -i * ROAD_LENGTH);
+                roadMesh.receiveShadow = true;
+                scene.add(roadMesh);
+                roads.push(roadMesh);
             }
-        });
 
-        window.addEventListener('keyup', (e) => {
-            if (keyMap[e.key]) {
-                STATE.keys[keyMap[e.key]] = false;
+            // Build Side Barriers & Environment Details
+            buildEnvironment(poleTexture);
+
+            // Load Car Model (beta.glb)
+            const gltfLoader = new THREE.GLTFLoader();
+            gltfLoader.load('./beta.glb', 
+                (gltf) => {
+                    car = new THREE.Group();
+                    const model = gltf.scene;
+                    
+                    // Center and scale the model appropriately
+                    const box = new THREE.Box3().setFromObject(model);
+                    const size = box.getSize(new THREE.Vector3());
+                    const scaleFactor = 3.8 / size.z; // normalize length to ~3.8 units
+                    model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                    
+                    // Ensure the model is centered and faces forward (-Z direction)
+                    const center = box.getCenter(new THREE.Vector3());
+                    model.position.set(-center.x * scaleFactor, -box.min.y * scaleFactor, -center.z * scaleFactor);
+                    
+                    car.add(model);
+                    
+                    // Setup shadows for all children
+                    car.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+
+                    // Headlights
+                    headlightL = new THREE.SpotLight(0xffffff, 8, 80, Math.PI / 6, 0.5, 1);
+                    headlightL.position.set(-0.8, 0.6, -1.8);
+                    headlightL.target.position.set(-0.8, 0, -30);
+                    car.add(headlightL);
+                    car.add(headlightL.target);
+
+                    headlightR = new THREE.SpotLight(0xffffff, 8, 80, Math.PI / 6, 0.5, 1);
+                    headlightR.position.set(0.8, 0.6, -1.8);
+                    headlightR.target.position.set(0.8, 0, -30);
+                    car.add(headlightR);
+                    car.add(headlightR.target);
+
+                    // Position Car
+                    car.position.set(0, Y_LOCK_HEIGHT, 0);
+                    scene.add(car);
+                    carLoaded = true;
+
+                    // Remove Splash Screen
+                    progressBar.style.width = '100%';
+                    setTimeout(() => {
+                        splash.style.opacity = '0';
+                        setTimeout(() => {
+                            splash.style.display = 'none';
+                            triggerEngineStart();
+                        }, 500);
+                    }, 500);
+                },
+                (xhr) => {
+                    if (xhr.total > 0) {
+                        const percent = (xhr.loaded / xhr.total) * 100;
+                        progressBar.style.width = percent + '%';
+                    }
+                },
+                (error) => {
+                    console.error('An error occurred loading beta.glb, utilizing high-fidelity visual fallback.', error);
+                    createFallbackCar();
+                }
+            );
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            setupInput();
+
+            // Start Animation Loop
+            animate();
+        }
+
+        // --- VISUAL FALLBACK CAR (Only if GLTF Loader encounters structural network issues) ---
+        function createFallbackCar() {
+            car = new THREE.Group();
+            
+            const bodyGeo = new THREE.BoxGeometry(1.8, 0.7, 4);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00ffc8, roughness: 0.2, metalness: 0.8 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.45;
+            body.castShadow = true;
+            body.receiveShadow = true;
+            car.add(body);
+
+            const cabinGeo = new THREE.BoxGeometry(1.4, 0.6, 2);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x050510, roughness: 0.1, metalness: 0.9 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(0, 1, -0.2);
+            cabin.castShadow = true;
+            car.add(cabin);
+
+            // Wheels
+            const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 24);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111115, roughness: 0.8 });
+            const wheelPositions = [
+                [-0.95, 0.4, 1.3], [0.95, 0.4, 1.3],
+                [-0.95, 0.4, -1.3], [0.95, 0.4, -1.3]
+            ];
+            wheelPositions.forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(pos[0], pos[1], pos[2]);
+                wheel.castShadow = true;
+                car.add(wheel);
+            });
+
+            // Headlights
+            headlightL = new THREE.SpotLight(0xffffff, 8, 80, Math.PI / 6, 0.5, 1);
+            headlightL.position.set(-0.7, 0.6, -2);
+            headlightL.target.position.set(-0.7, 0, -30);
+            car.add(headlightL);
+            car.add(headlightL.target);
+
+            headlightR = new THREE.SpotLight(0xffffff, 8, 80, Math.PI / 6, 0.5, 1);
+            headlightR.position.set(0.7, 0.6, -2);
+            headlightR.target.position.set(0.7, 0, -30);
+            car.add(headlightR);
+            car.add(headlightR.target);
+
+            car.position.set(0, Y_LOCK_HEIGHT, 0);
+            scene.add(car);
+            carLoaded = true;
+
+            splash.style.opacity = '0';
+            setTimeout(() => {
+                splash.style.display = 'none';
+                triggerEngineStart();
+            }, 500);
+        }
+
+        // --- ENVIRONMENT BUILDER ---
+        function buildEnvironment(poleTex) {
+            const poleGeo = new THREE.CylinderGeometry(0.15, 0.25, 8, 16);
+            const poleMat = new THREE.MeshStandardMaterial({ 
+                map: poleTex, 
+                roughness: 0.7, 
+                metalness: 0.2 
+            });
+
+            const lampGeo = new THREE.BoxGeometry(0.3, 0.3, 1.5);
+            const lampMat = new THREE.MeshStandardMaterial({ color: 0x11111a });
+            
+            const lightSourceGeo = new THREE.BoxGeometry(0.25, 0.05, 0.8);
+            const lightSourceMat = new THREE.MeshBasicMaterial({ color: 0xffe6a3 });
+
+            // Generate structured side poles along the highway
+            const totalPoles = 12;
+            for (let i = 0; i < totalPoles; i++) {
+                const zPos = -i * POLE_SPACING;
+                const side = i % 2 === 0 ? -1 : 1;
+                const xPos = side * (ROAD_WIDTH / 2 + 1.5);
+
+                const poleGroup = new THREE.Group();
+                poleGroup.position.set(xPos, 4, zPos);
+
+                const poleMesh = new THREE.Mesh(poleGeo, poleMat);
+                poleMesh.castShadow = true;
+                poleMesh.receiveShadow = true;
+                poleGroup.add(poleMesh);
+
+                // Lamp arm
+                const lampArm = new THREE.Mesh(lampGeo, lampMat);
+                lampArm.position.set(-side * 0.6, 3.8, 0);
+                lampArm.rotation.y = side * Math.PI / 2;
+                poleGroup.add(lampArm);
+
+                // Glowing lamp light
+                const lampLight = new THREE.Mesh(lightSourceGeo, lightSourceMat);
+                lampLight.position.set(-side * 1.1, 3.7, 0);
+                poleGroup.add(lampLight);
+
+                // Add real spotlight illuminating the highway
+                const streetSpot = new THREE.SpotLight(0xffe6a3, 3, 35, Math.PI / 4, 0.8, 1.5);
+                streetSpot.position.set(-side * 1.1, 3.7, 0);
+                streetSpot.target.position.set(-side * 1.1, 0, 0);
+                poleGroup.add(streetSpot);
+                poleGroup.add(streetSpot.target);
+
+                scene.add(poleGroup);
+                poles.push(poleGroup);
             }
-        });
+        }
 
-        // On-Screen Touch Controls for Mobile
-        const setupTouchBtn = (id, key) => {
-            const btn = document.getElementById(id);
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); STATE.keys[key] = true; });
-            btn.addEventListener('touchend', (e) => { e.preventDefault(); STATE.keys[key] = false; });
-            btn.addEventListener('mousedown', () => { STATE.keys[key] = true; });
-            btn.addEventListener('mouseup', () => { STATE.keys[key] = false; });
-            btn.addEventListener('mouseleave', () => { STATE.keys[key] = false; });
-        };
-        setupTouchBtn('ctrl-left', 'a');
-        setupTouchBtn('ctrl-right', 'd');
-        setupTouchBtn('ctrl-gas', 'w');
-        setupTouchBtn('ctrl-brake', 's');
+        // --- INPUT HANDLING ---
+        function setupInput() {
+            // Keyboard Controls
+            window.addEventListener('keydown', (e) => {
+                triggerEngineStart();
+                switch (e.key.toLowerCase()) {
+                    case 'w': case 'arrowup': keys.gas = true; break;
+                    case 's': case 'arrowdown': keys.brake = true; break;
+                    case 'a': case 'arrowleft': keys.left = true; break;
+                    case 'd': case 'arrowright': keys.right = true; break;
+                }
+            });
 
+            window.addEventListener('keyup', (e) => {
+                switch (e.key.toLowerCase()) {
+                    case 'w': case 'arrowup': keys.gas = false; break;
+                    case 's': case 'arrowdown': keys.brake = false; break;
+                    case 'a': case 'arrowleft': keys.left = false; break;
+                    case 'd': case 'arrowright': keys.right = false; break;
+                }
+            });
+
+            // Mobile Touch Controls
+            const setupMobileBtn = (id, keyName) => {
+                const btn = document.getElementById(id);
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    triggerEngineStart();
+                    keys[keyName] = true;
+                });
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    keys[keyName] = false;
+                });
+                btn.addEventListener('mousedown', () => {
+                    triggerEngineStart();
+                    keys[keyName] = true;
+                });
+                btn.addEventListener('mouseup', () => {
+                    keys[keyName] = false;
+                });
+                btn.addEventListener('mouseleave', () => {
+                    keys[keyName] = false;
+                });
+            };
+
+            setupMobileBtn('btn-left', 'left');
+            setupMobileBtn('btn-right', 'right');
+            setupMobileBtn('btn-gas', 'gas');
+            setupMobileBtn('btn-brake', 'brake');
+        }
 
         // --- GAME LOOP & PHYSICS ---
-        const clock = new THREE.Clock();
-
         function animate() {
             requestAnimationFrame(animate);
 
-            const delta = clock.getDelta();
+            const dt = Math.min(clock.getDelta(), 0.1); // Cap delta to prevent physics explosion
 
-            if (STATE.mode === 'showroom') {
-                // Auto-rotate the car slowly in showroom mode if user isn't actively dragging
-                if (carModel && !controls.state == -1) {
-                    carModel.rotation.y += 0.003;
-                }
-                controls.update();
-
-            } else if (STATE.mode === 'driving' && carModel) {
-                
-                // --- ARCADE DRIVING PHYSICS ---
-                
-                // Acceleration & Braking / Reverse
-                if (STATE.keys.w) {
-                    STATE.speed = Math.min(STATE.speed + STATE.acceleration, STATE.maxSpeed);
-                } else if (STATE.keys.s) {
-                    STATE.speed = Math.max(STATE.speed - STATE.acceleration, -STATE.maxSpeed / 2);
-                } else {
-                    // Natural deceleration / Friction
-                    if (STATE.speed > 0) {
-                        STATE.speed = Math.max(0, STATE.speed - STATE.friction);
-                    } else if (STATE.speed < 0) {
-                        STATE.speed = Math.min(0, STATE.speed + STATE.friction);
-                    }
-                }
-
-                // Steering
-                if (Math.abs(STATE.speed) > 0.05) {
-                    const steerFactor = STATE.speed > 0 ? 1 : -1;
-                    if (STATE.keys.a) {
-                        STATE.steerAngle = Math.min(STATE.steerAngle + 0.005, STATE.maxSteer);
-                    } else if (STATE.keys.d) {
-                        STATE.steerAngle = Math.max(STATE.steerAngle - 0.005, -STATE.maxSteer);
-                    } else {
-                        // Return steering to center
-                        STATE.steerAngle *= 0.85;
-                    }
-                    STATE.carRotation += STATE.steerAngle * steerFactor * (Math.abs(STATE.speed) / STATE.maxSpeed);
-                } else {
-                    STATE.steerAngle *= 0.5;
-                }
-
-                // Update Car Position & Rotation
-                carModel.rotation.y = STATE.carRotation;
-                
-                // Movement vector calculation
-                const moveX = Math.sin(STATE.carRotation) * STATE.speed;
-                const moveZ = Math.cos(STATE.carRotation) * STATE.speed;
-                
-                carModel.position.x += moveX;
-                carModel.position.z += moveZ;
-
-                // Restrict car within road boundaries (X: -7.5 to 7.5)
-                if (carModel.position.x < -7.5) {
-                    carModel.position.x = -7.5;
-                    STATE.speed *= 0.95; // Slow down slightly on collision with shoulder
-                } else if (carModel.position.x > 7.5) {
-                    carModel.position.x = 7.5;
-                    STATE.speed *= 0.95;
-                }
-
-                // Track Distance (Score) based on forward movement
-                if (STATE.speed > 0) {
-                    STATE.distance += Math.round(STATE.speed * 2);
-                }
-
-                // --- CAMERA SMOOTH FOLLOW (LERP) ---
-                const targetCamPos = new THREE.Vector3();
-                // Position camera behind the car based on its rotation
-                const offset = new THREE.Vector3(
-                    -Math.sin(STATE.carRotation) * 9,
-                    3.2,
-                    -Math.cos(STATE.carRotation) * 9
-                );
-                targetCamPos.copy(carModel.position).add(offset);
-                
-                // Smooth camera transition
-                camera.position.lerp(targetCamPos, 0.12);
-                
-                // Camera looks slightly ahead of the car
-                const lookTarget = carModel.position.clone().add(new THREE.Vector3(
-                    Math.sin(STATE.carRotation) * 4,
-                    1.0,
-                    Math.cos(STATE.carRotation) * 4
-                ));
-                camera.lookAt(lookTarget);
-
-                // --- INFINITE ROAD & POLES RECYCLING ---
-                // Move road plane with car to simulate infinite highway
-                road.position.z = carModel.position.z - 100;
-                roadTexture.offset.y = -(carModel.position.z * 0.05);
-
-                // Recycle poles ahead of the car as they pass behind
-                polesArray.forEach((pole) => {
-                    // If pole is behind camera/car, shift it further ahead
-                    if (pole.position.z > carModel.position.z + 20) {
-                        pole.position.z -= poleSpacing * (numPoles / 2);
-                    }
-                });
-
-                // Spin and detect collision with Collectible Rings
-                ringsArray.forEach((ringObj) => {
-                    ringObj.mesh.rotation.y += 0.03;
-                    
-                    // Recycle ring if left behind
-                    if (ringObj.mesh.position.z > carModel.position.z + 20) {
-                        ringObj.mesh.position.z = carModel.position.z - 300 - (Math.random() * 150);
-                        const lanes = [-4, 0, 4];
-                        ringObj.mesh.position.x = lanes[Math.floor(Math.random() * lanes.length)];
-                        ringObj.mesh.visible = true;
-                    }
-
-                    // Collision detection (Simple bounding box/distance)
-                    if (ringObj.mesh.visible && carModel.position.distanceTo(ringObj.mesh.position) < 1.8) {
-                        ringObj.mesh.visible = false;
-                        STATE.distance += 250; // Bonus points!
-                        
-                        // Flash UI to indicate pickup
-                        const hudDist = document.getElementById('hud-distance');
-                        hudDist.classList.add('text-emerald-400', 'scale-110');
-                        setTimeout(() => {
-                            hudDist.classList.remove('text-emerald-400', 'scale-110');
-                        }, 300);
-
-                        // Procedural audio synth effect for collecting ring (since no external sound file is provided)
-                        if (STATE.audioEnabled) {
-                            playSynthBeep(ringObj.color);
-                        }
-                    }
-                });
-
-                // --- REALTIME AUDIO MODULATION ---
-                if (STATE.audioEnabled) {
-                    const speedRatio = Math.abs(STATE.speed) / STATE.maxSpeed;
-                    
-                    // Crossfade and pitch bend engine sounds based on current speed
-                    soundEngineIdle.setVolume((1 - speedRatio) * 0.6);
-                    soundEngineAccel.setVolume(speedRatio * 0.8);
-                    
-                    // Modulate pitch of acceleration sound
-                    soundEngineAccel.setPlaybackRate(0.8 + (speedRatio * 0.6));
-                }
-
-                // --- UPDATE HUD DISPLAY ---
-                const currentSpeedKmh = Math.round(Math.abs(STATE.speed) * 180);
-                document.getElementById('hud-speed').textContent = currentSpeedKmh;
-                document.getElementById('hud-distance').textContent = STATE.distance;
-
-                // Circle progress dash update
-                const circle = document.getElementById('speed-indicator-circle');
-                const maxDash = 276;
-                const dashOffset = maxDash - (Math.min(currentSpeedKmh, 220) / 220) * maxDash;
-                circle.style.strokeDashoffset = dashOffset;
+            if (carLoaded) {
+                updatePhysics(dt);
+                updateEnvironment();
+                updateCamera(dt);
+                updateAudio();
             }
 
             renderer.render(scene, camera);
         }
 
-        // Procedural Web Audio Synth for ring collection feedback
-        function playSynthBeep(color) {
-            try {
-                const ctx = THREE.AudioContext.getContext();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                
-                // Different pitches depending on ring color
-                let freq = 523.25; // C5 default
-                if (color === 0x10b981) freq = 659.25; // E5
-                if (color === 0xec4899) freq = 783.99; // G5
-                
-                osc.frequency.setValueAtTime(freq, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + 0.15);
-                
-                gain.gain.setValueAtTime(0.15, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-                
-                osc.start();
-                osc.stop(ctx.currentTime + 0.2);
-            } catch (e) {
-                // Audio context might be restricted
+        function updatePhysics(dt) {
+            // Steering Angle Adjustments
+            if (keys.left) {
+                // Steering sensitivity decreases as speed increases for high speed stability
+                const turnFactor = Math.min(1.0, Math.abs(speed) / 15);
+                carAngle += TURN_SPEED * turnFactor * dt * (speed >= 0 ? 1 : -1);
+            }
+            if (keys.right) {
+                const turnFactor = Math.min(1.0, Math.abs(speed) / 15);
+                carAngle -= TURN_SPEED * turnFactor * dt * (speed >= 0 ? 1 : -1);
+            }
+
+            // Gas and Brake Dynamics
+            if (keys.gas) {
+                if (speed < 0) {
+                    speed += BRAKE_FORCE * dt; // Rapid braking when reversing
+                } else {
+                    speed += ACCELERATION * dt;
+                }
+            } else if (keys.brake) {
+                if (speed > 0) {
+                    speed -= BRAKE_FORCE * dt;
+                } else {
+                    speed -= ACCELERATION * 0.5 * dt; // Reverse acceleration is slower
+                }
+            } else {
+                // Natural deceleration / friction
+                if (speed > 0) {
+                    speed = Math.max(0, speed - DECELERATION * dt);
+                } else if (speed < 0) {
+                    speed = Math.min(0, speed + DECELERATION * dt);
+                }
+            }
+
+            // Clamp max speeds
+            if (speed > MAX_SPEED) speed = MAX_SPEED;
+            if (speed < -MAX_SPEED * 0.3) speed = -MAX_SPEED * 0.3;
+
+            // Apply translation along facing angle
+            carX += speed * Math.sin(carAngle) * dt;
+            carZ += speed * Math.cos(carAngle) * dt;
+
+            // Constrain car coordinates to road width boundaries
+            const maxBound = ROAD_WIDTH / 2 - 1.2;
+            if (carX > maxBound) {
+                carX = maxBound;
+                speed *= 0.95; // slight deceleration bump
+            } else if (carX < -maxBound) {
+                carX = -maxBound;
+                speed *= 0.95;
+            }
+
+            // Set Position & Strict Y Lock
+            car.position.set(carX, Y_LOCK_HEIGHT, carZ);
+            car.rotation.y = carAngle;
+
+            // Update UI speedometer
+            const kmh = Math.round(Math.abs(speed) * 2.4);
+            speedDisplay.textContent = kmh;
+        }
+
+        function updateEnvironment() {
+            // Endless Road Logic
+            roads.forEach(road => {
+                // Check if the road is behind the car's perspective
+                if (road.position.z - ROAD_LENGTH / 2 > carZ) {
+                    // Move the road segment forward in front of the road chain
+                    road.position.z -= ROAD_LENGTH * 3;
+                }
+            });
+
+            // Endless Poles Logic
+            poles.forEach(pole => {
+                if (pole.position.z - 30 > carZ) {
+                    pole.position.z -= POLE_SPACING * poles.length;
+                    // Randomize side slightly to add organic realism
+                    const side = pole.position.x > 0 ? 1 : -1;
+                    pole.position.x = side * (ROAD_WIDTH / 2 + 1.5);
+                }
+            });
+        }
+
+        function updateCamera(dt) {
+            // Dynamic Chase Camera
+            const cameraDistance = 7.5 + (Math.abs(speed) * 0.05); // dynamic distance based on speed
+            const cameraHeight = 2.4 + (Math.abs(speed) * 0.01);
+            
+            // Camera target behind the car based on its rotation
+            const targetCamX = carX + Math.sin(carAngle) * cameraDistance;
+            const targetCamZ = carZ + Math.cos(carAngle) * cameraDistance;
+            const targetCamY = car.position.y + cameraHeight;
+
+            // Smooth interpolation (lerp)
+            camera.position.x += (targetCamX - camera.position.x) * 12 * dt;
+            camera.position.y += (targetCamY - camera.position.y) * 12 * dt;
+            camera.position.z += (targetCamZ - camera.position.z) * 12 * dt;
+
+            // Look slightly ahead of the car
+            const lookTarget = new THREE.Vector3(
+                carX - Math.sin(carAngle) * 6,
+                car.position.y + 0.5,
+                carZ - Math.cos(carAngle) * 6
+            );
+            camera.lookAt(lookTarget);
+        }
+
+        function updateAudio() {
+            if (!audioInitialized || !startSoundPlayed) return;
+
+            const normSpeed = Math.abs(speed) / MAX_SPEED;
+
+            if (keys.gas) {
+                // Dynamic crossfade to acceleration sound
+                if (soundAccel.buffer) {
+                    const targetAccelVol = THREE.MathUtils.lerp(soundAccel.gain.gain.value, 1.0, 0.1);
+                    soundAccel.setVolume(targetAccelVol);
+                    // Modulate pitch based on velocity
+                    soundAccel.setPlaybackRate(0.85 + normSpeed * 0.9);
+                }
+                if (soundIdle.buffer) {
+                    const targetIdleVol = THREE.MathUtils.lerp(soundIdle.gain.gain.value, 0.2, 0.1);
+                    soundIdle.setVolume(targetIdleVol);
+                }
+            } else {
+                // Fade back to idle sound
+                if (soundAccel.buffer) {
+                    const targetAccelVol = THREE.MathUtils.lerp(soundAccel.gain.gain.value, 0.0, 0.15);
+                    soundAccel.setVolume(targetAccelVol);
+                }
+                if (soundIdle.buffer) {
+                    const targetIdleVol = THREE.MathUtils.lerp(soundIdle.gain.gain.value, 0.7, 0.1);
+                    soundIdle.setVolume(targetIdleVol);
+                    // Idle pitch fluctuates slightly with coasting speed
+                    soundIdle.setPlaybackRate(1.0 + normSpeed * 0.3);
+                }
             }
         }
 
-        // Start the Main loop
-        animate();
-
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
     </script>
 </body>
 </html>
