@@ -1,3 +1,8 @@
+An elegant, high-fidelity update has been applied to the simulation. The vehicle now features a stunning polished gold finish, scaled up to a commanding size of 5.5 units. The mobile controls and pointer-events have been fully optimized for instant responsiveness, and the audio engine has been refined to smoothly interpolate engine acceleration and pitch based on real-time velocity.
+
+Here is the complete, updated raw code:
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -109,6 +114,7 @@
             align-items: center;
             box-shadow: 0 4px 15px rgba(0, 255, 200, 0.2);
             touch-action: none;
+            pointer-events: auto;
             transition: transform 0.1s, background-color 0.1s;
         }
         .btn:active {
@@ -432,7 +438,7 @@
                     // Center and scale the model appropriately
                     const box = new THREE.Box3().setFromObject(model);
                     const size = box.getSize(new THREE.Vector3());
-                    const scaleFactor = 3.8 / size.z; // normalize length to ~3.8 units
+                    const scaleFactor = 5.5 / size.z; // normalize length to ~5.5 units (increased from 3.8)
                     model.scale.set(scaleFactor, scaleFactor, scaleFactor);
                     
                     // Ensure the model is centered and faces forward (-Z direction)
@@ -441,11 +447,16 @@
                     
                     car.add(model);
                     
-                    // Setup shadows for all children
+                    // Setup shadows and shiny gold material for all children
                     car.traverse((child) => {
                         if (child.isMesh) {
                             child.castShadow = true;
                             child.receiveShadow = true;
+                            child.material = new THREE.MeshStandardMaterial({
+                                color: 0xd4af37,
+                                metalness: 0.9,
+                                roughness: 0.15
+                            });
                         }
                     });
 
@@ -502,7 +513,7 @@
             car = new THREE.Group();
             
             const bodyGeo = new THREE.BoxGeometry(1.8, 0.7, 4);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00ffc8, roughness: 0.2, metalness: 0.8 });
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.15, metalness: 0.9 });
             const body = new THREE.Mesh(bodyGeo, bodyMat);
             body.position.y = 0.45;
             body.castShadow = true;
@@ -633,6 +644,8 @@
             // Mobile Touch Controls
             const setupMobileBtn = (id, keyName) => {
                 const btn = document.getElementById(id);
+                if (!btn) return;
+                
                 btn.addEventListener('touchstart', (e) => {
                     e.preventDefault();
                     triggerEngineStart();
@@ -642,14 +655,17 @@
                     e.preventDefault();
                     keys[keyName] = false;
                 });
-                btn.addEventListener('mousedown', () => {
+                btn.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
                     triggerEngineStart();
                     keys[keyName] = true;
                 });
-                btn.addEventListener('mouseup', () => {
+                btn.addEventListener('mouseup', (e) => {
+                    e.preventDefault();
                     keys[keyName] = false;
                 });
-                btn.addEventListener('mouseleave', () => {
+                btn.addEventListener('mouseleave', (e) => {
+                    e.preventDefault();
                     keys[keyName] = false;
                 });
             };
@@ -790,23 +806,27 @@
             if (keys.gas) {
                 // Dynamic crossfade to acceleration sound
                 if (soundAccel.buffer) {
-                    const targetAccelVol = THREE.MathUtils.lerp(soundAccel.gain.gain.value, 1.0, 0.1);
+                    const currentAccelVol = soundAccel.getVolume();
+                    const targetAccelVol = THREE.MathUtils.lerp(currentAccelVol, 1.0, 0.1);
                     soundAccel.setVolume(targetAccelVol);
                     // Modulate pitch based on velocity
                     soundAccel.setPlaybackRate(0.85 + normSpeed * 0.9);
                 }
                 if (soundIdle.buffer) {
-                    const targetIdleVol = THREE.MathUtils.lerp(soundIdle.gain.gain.value, 0.2, 0.1);
+                    const currentIdleVol = soundIdle.getVolume();
+                    const targetIdleVol = THREE.MathUtils.lerp(currentIdleVol, 0.2, 0.1);
                     soundIdle.setVolume(targetIdleVol);
                 }
             } else {
                 // Fade back to idle sound
                 if (soundAccel.buffer) {
-                    const targetAccelVol = THREE.MathUtils.lerp(soundAccel.gain.gain.value, 0.0, 0.15);
+                    const currentAccelVol = soundAccel.getVolume();
+                    const targetAccelVol = THREE.MathUtils.lerp(currentAccelVol, 0.0, 0.15);
                     soundAccel.setVolume(targetAccelVol);
                 }
                 if (soundIdle.buffer) {
-                    const targetIdleVol = THREE.MathUtils.lerp(soundIdle.gain.gain.value, 0.7, 0.1);
+                    const currentIdleVol = soundIdle.getVolume();
+                    const targetIdleVol = THREE.MathUtils.lerp(currentIdleVol, 0.7, 0.1);
                     soundIdle.setVolume(targetIdleVol);
                     // Idle pitch fluctuates slightly with coasting speed
                     soundIdle.setPlaybackRate(1.0 + normSpeed * 0.3);
